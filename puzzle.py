@@ -2026,48 +2026,93 @@ class PiecesModel(QtCore.QAbstractListModel):
 
 
 def RGB4A3Decode(tex, useAlpha=True):
-    dest = QtGui.QImage(1024,256,QtGui.QImage.Format_ARGB32)
-    dest.fill(Qt.transparent)
-    
-    i = 0
-    for ytile in range(0, 256, 4):
-        for xtile in range(0, 1024, 4):
-            for ypixel in range(ytile, ytile + 4):
-                for xpixel in range(xtile, xtile + 4):
-                    
-                    if(xpixel >= 1024 or ypixel >= 256):
-                        continue
-                    
-                    newpixel = (tex[i] << 8) | tex[i+1]
-                    
-    
-                    if(newpixel >= 0x8000): # Check if it's RGB555
-                        red = ((newpixel >> 10) & 0x1F) * 255 / 0x1F
-                        green = ((newpixel >> 5) & 0x1F) * 255 / 0x1F
-                        blue = (newpixel & 0x1F) * 255 / 0x1F
-                        alpha = 0xFF
-    
-                    else: # If not, it's RGB4A3
-                        alpha = ((newpixel & 0x7000) >> 12) * 255 / 0x7
-                        blue = ((newpixel & 0xF00) >> 8) * 255 / 0xF
-                        green = ((newpixel & 0xF0) >> 4) * 255 / 0xF
-                        red = (newpixel & 0xF) * 255 / 0xF
+    tx = 0; ty = 0
+    iter = tex.__iter__()
+    dest = [0] * 262144
+    colorCache = {}
 
-                    alpha, red, green, blue = int(alpha), int(red), int(green), int(blue)
-                    if not useAlpha: alpha = 0xFF
-    
-                    argb = (blue) | (green << 8) | (red << 16) | (alpha << 24)
-                    dest.setPixel(xpixel, ypixel, argb)
-                    i += 2
-    return dest
+    # Loop over all texels (of which there are 16384)
+    # lastD = None
+    for i in range(16384):
+        temp1 = (i // 256) % 8
+        if temp1 == 0 or temp1 == 7:
+            # Skip every row of texels that is a multiple of 8 or (a
+            # multiple of 8) - 1
+            # Unrolled loop for performance.
+            next(iter); next(iter); next(iter); next(iter)
+            next(iter); next(iter); next(iter); next(iter)
+            next(iter); next(iter); next(iter); next(iter)
+            next(iter); next(iter); next(iter); next(iter)
+            next(iter); next(iter); next(iter); next(iter)
+            next(iter); next(iter); next(iter); next(iter)
+            next(iter); next(iter); next(iter); next(iter)
+            next(iter); next(iter); next(iter); next(iter)
+        else:
+            temp2 = i % 8
+            if temp2 == 0 or temp2 == 7:
+                # Skip every column of texels that is a multiple of 8
+                # or (a multiple of 8) - 1
+                # Unrolled loop for performance.
+                next(iter); next(iter); next(iter); next(iter)
+                next(iter); next(iter); next(iter); next(iter)
+                next(iter); next(iter); next(iter); next(iter)
+                next(iter); next(iter); next(iter); next(iter)
+                next(iter); next(iter); next(iter); next(iter)
+                next(iter); next(iter); next(iter); next(iter)
+                next(iter); next(iter); next(iter); next(iter)
+                next(iter); next(iter); next(iter); next(iter)
+            else:
+                # Actually render this texel
+                for y in range(ty, ty+4):
+                    for x in range(tx, tx+4):
+                        d = next(iter) << 8
+                        d |= next(iter)
+
+                        # Cache decoded colors for performance
+                        if d in colorCache:
+                            dest[x + y * 1024] = colorCache[d]
+                        else:
+                            # These are the actual formulas used on the
+                            # Wii (or at least in Dolphin) for decoding
+                            # these colors
+                            if d & 0x8000:
+                                # RGB555
+                                red = (d >> 10) & 0x1F
+                                red = red << 3 | red >> 2
+                                green = (d >> 5) & 0x1F
+                                green = green << 3 | green >> 2
+                                blue = d & 0x1F
+                                blue = blue << 3 | blue >> 2
+                                alpha = 0xFF
+                            else:
+                                # RGB4A3
+                                if useAlpha:
+                                    alpha = (d >> 12) & 7
+                                    alpha = alpha << 5 | alpha << 2 | alpha >> 1
+                                else:
+                                    alpha = 0xFF
+                                red = (d >> 8) & 0xF
+                                red |= red << 4
+                                green = (d >> 4) & 0xF
+                                green |= green << 4
+                                blue = d & 0xF
+                                blue |= blue << 4
+
+                            argb = blue | (green << 8) | (red << 16) | (alpha << 24)
+                            dest[x + y * 1024] = colorCache[d] = argb
+
+        # Move on to the next texel
+        tx += 4
+        if tx >= 1024: tx = 0; ty += 4
+
+    # Convert the list of ARGB color values into a bytes object, and
+    # then convert that into a QImage
+    return QtGui.QImage(struct.pack('<262144I', *dest), 1024, 256, QtGui.QImage.Format_ARGB32)
 
 
 def RGB4A3Encode(tex):
-    destBuffer = create_string_buffer(524288)
-
-    shortstruct = struct.Struct('>H')
-    offset = 0
-
+    shorts = []
+    colorCache = {}
     for ytile in range(0, 256, 4):
         for xtile in range(0, 1024, 4):
             for ypixel in range(ytile, ytile + 4):
@@ -2082,26 +2127,53 @@ def RGB4A3Encode(tex):
                     r = (pixel >> 16) & 0xFF
                     g = (pixel >> 8) & 0xFF
                     b = pixel & 0xFF
-                    
-                    if a < 245: # RGB4A3
-                        alpha = int(a / 32)
-                        red = int(r / 16)
-                        green = int(g / 16)
-                        blue = int(b / 16)
 
-                        rgbDAT = (blue) | (green << 4) | (red << 8) | (alpha << 12)
-                
-                    else: # RGB555
-                        red = int(r / 8)
-                        green = int(g / 8)
-                        blue = int(b / 8)
-                        
-                        rgbDAT = (blue) | (green << 5) | (red << 10) | (0x8000) # 0rrrrrgggggbbbbb
-                                                                                                            
-                    shortstruct.pack_into(destBuffer, offset, rgbDAT)
-                    offset += 2
+                    if pixel in colorCache:
+                        rgba = colorCache[pixel]
+
+                    else:
+
+                        # See encodingTests.py for verification that these
+                        # channel conversion formulas are 100% correct
+
+                        # It'd be nice if we could do
+                        # if a < 19:
+                        #     rgba = 0
+                        # for speed, but that defeats the purpose of the
+                        # "Toggle Alpha" setting.
+
+                        if a < 238: # RGB4A3
+                            alpha = int((a + 18) // 36.5)
+                            red = (r + 8) // 17
+                            green = (g + 8) // 17
+                            blue = (b + 8) // 17
+
+                            # 0aaarrrrggggbbbb
+                            rgba = blue | (green << 4) | (red << 8) | (alpha << 12)
                     
-    return destBuffer.raw
+                        else: # RGB555
+                            red = int((r + 4) // 8.25)
+                            green = int((g + 4) // 8.25)
+                            blue = int((b + 4) // 8.25)
+
+                            # 1rrrrrgggggbbbbb
+                            rgba = blue | (green << 5) | (red << 10) | (0x8000)
+
+                            colorCache[pixel] = rgba
+
+                    shorts.append(rgba)
+
+                    if xtile % 32 == 0 or xtile % 32 == 28:
+                        shorts.append(rgba)
+                        shorts.append(rgba)
+                        shorts.append(rgba)
+                        break
+                if xtile % 32 == 0 or xtile % 32 == 28:
+                    shorts.extend(shorts[-4:])
+                    shorts.extend(shorts[-8:])
+                    break
+
+    return struct.pack('>262144H', *shorts)
 
 
 #############################################################################################
@@ -2445,46 +2517,46 @@ class MainWindow(QtWidgets.QMainWindow):
                 
                 # Top Clamp
                 colour = minitex.pixel(i, 4)
-                for p in range(0,4):
+                for p in range(0,5):
                     minitex.setPixel(i, p, colour)
                 
                 # Left Clamp
                 colour = minitex.pixel(4, i)
-                for p in range(0,4):
+                for p in range(0,5):
                     minitex.setPixel(p, i, colour)
                 
                 # Right Clamp
                 colour = minitex.pixel(i, 27)
-                for p in range(27,31):
+                for p in range(27,32):
                     minitex.setPixel(i, p, colour)
                 
                 # Bottom Clamp
                 colour = minitex.pixel(27, i)
-                for p in range(27,31):
+                for p in range(27,32):
                     minitex.setPixel(p, i, colour)
 
             # UpperLeft Corner Clamp
             colour = minitex.pixel(4, 4)
-            for x in range(0,4):
-                for y in range(0,4):
+            for x in range(0,5):
+                for y in range(0,5):
                     minitex.setPixel(x, y, colour)
 
             # UpperRight Corner Clamp
             colour = minitex.pixel(27, 4)
-            for x in range(27,31):
-                for y in range(0,4):
+            for x in range(27,32):
+                for y in range(0,5):
                     minitex.setPixel(x, y, colour)
 
             # LowerLeft Corner Clamp
             colour = minitex.pixel(4, 27)
-            for x in range(0,4):
-                for y in range(27,31):
+            for x in range(0,5):
+                for y in range(27,32):
                     minitex.setPixel(x, y, colour)
 
             # LowerRight Corner Clamp
             colour = minitex.pixel(27, 27)
-            for x in range(27,31):
-                for y in range(27,31):
+            for x in range(27,32):
+                for y in range(27,32):
                     minitex.setPixel(x, y, colour)
 
                     
@@ -2499,20 +2571,33 @@ class MainWindow(QtWidgets.QMainWindow):
         painter.end()
 
         dest = RGB4A3Encode(tex)
-        
-        
-        items = ("Very Slow Compression, Good Quality", "Fast Compression, but the Image gets damaged")
 
-        item, ok = QtWidgets.QInputDialog.getItem(self, "Choose compression method",
-                "Two methods of compression are available. Choose \n"
-                "Fast compression for rapid testing. Choose slow \n"
-                "compression for releases. Bug Treeki to get the fast \n"
-                "compression fixed.", items, 0, False)
-        if ok and item == "Very Slow Compression, Good Quality":
-            lz = lz77.LZS11()
-            TexBuffer = (lz.Compress11LZS(dest))
+        useNSMBLib = HaveNSMBLib and hasattr(nsmblib, 'compress11LZS')
+
+        if useNSMBLib:
+            # NSMBLib is available, so the user can choose whether to use it or not
+        
+            items = ("Slow Compression, Good Quality", "Fast Compression, but the Image gets damaged")
+
+            item, ok = QtWidgets.QInputDialog.getItem(self, "Choose compression method",
+                    "Two methods of compression are available. Choose \n"
+                    "Fast compression for rapid testing. Choose slow \n"
+                    "compression for releases. Bug Treeki to get the fast \n"
+                    "compression fixed.", items, 0, False)
+            if ok and item == "Slow Compression, Good Quality":
+                useNSMBLib = False
+            else:
+                useNSMBLib = True
+
         else:
+            # NSMBLib is not available, so we have to use the Python version
+            useNSMBLib = False
+
+        if useNSMBLib:
             TexBuffer = nsmblib.compress11LZS(dest)
+        else:
+            lz = lz77.LZS11()
+            TexBuffer = lz.Compress11LZS(dest)
         
         return TexBuffer
 
