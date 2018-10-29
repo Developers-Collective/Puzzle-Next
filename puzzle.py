@@ -2871,6 +2871,9 @@ class MainWindow(QtWidgets.QMainWindow):
 ####################################### Main Function #######################################
 
 
+if '-nolib' in sys.argv:
+    HaveNSMBLib = False
+
 if __name__ == '__main__':
 
     import sys
