@@ -2026,33 +2026,45 @@ class PiecesModel(QtCore.QAbstractListModel):
 
 
 RGB4A3LUT = []
-def PrepareRGB4A3LUT():
-    global RGB4A3LUT
+RGB4A3LUT_NoAlpha = []
+def PrepareRGB4A3LUTs():
+    global RGB4A3LUT, RGB4A3LUT_NoAlpha
+
     RGB4A3LUT = [None] * 0x10000
-    # RGB4A3
-    for d in range(0x8000):
-        alpha = d >> 12
-        alpha = alpha << 5 | alpha << 2 | alpha >> 1
-        red = ((d >> 8) & 0xF) * 17
-        green = ((d >> 4) & 0xF) * 17
-        blue = (d & 0xF) * 17
-        RGB4A3LUT[d] = blue | (green << 8) | (red << 16) | (alpha << 24)
-    # RGB555
-    for d in range(0x8000):
-        red = d >> 10
-        red = red << 3 | red >> 2
-        green = (d >> 5) & 0x1F
-        green = green << 3 | green >> 2
-        blue = d & 0x1F
-        blue = blue << 3 | blue >> 2
-        RGB4A3LUT[d + 0x8000] = blue | (green << 8) | (red << 16) | 0xFF000000
-PrepareRGB4A3LUT()
+    RGB4A3LUT_NoAlpha = [None] * 0x10000
+    for LUT, hasA in [(RGB4A3LUT, True), (RGB4A3LUT_NoAlpha, False)]:
+
+        # RGB4A3
+        for d in range(0x8000):
+            if hasA:
+                alpha = d >> 12
+                alpha = alpha << 5 | alpha << 2 | alpha >> 1
+            else:
+                alpha = 0xFF
+            red = ((d >> 8) & 0xF) * 17
+            green = ((d >> 4) & 0xF) * 17
+            blue = (d & 0xF) * 17
+            LUT[d] = blue | (green << 8) | (red << 16) | (alpha << 24)
+
+        # RGB555
+        for d in range(0x8000):
+            red = d >> 10
+            red = red << 3 | red >> 2
+            green = (d >> 5) & 0x1F
+            green = green << 3 | green >> 2
+            blue = d & 0x1F
+            blue = blue << 3 | blue >> 2
+            LUT[d + 0x8000] = blue | (green << 8) | (red << 16) | 0xFF000000
+
+PrepareRGB4A3LUTs()
 
 
 def RGB4A3Decode(tex, useAlpha=True):
     tx = 0; ty = 0
     iter = tex.__iter__()
     dest = [0] * 262144
+
+    LUT = RGB4A3LUT if useAlpha else RGB4A3LUT_NoAlpha
 
     # Loop over all texels (of which there are 16384)
     for i in range(16384):
@@ -2087,7 +2099,7 @@ def RGB4A3Decode(tex, useAlpha=True):
                 # Actually render this texel
                 for y in range(ty, ty+4):
                     for x in range(tx, tx+4):
-                        dest[x + y * 1024] = RGB4A3LUT[next(iter) << 8 | next(iter)]
+                        dest[x + y * 1024] = LUT[next(iter) << 8 | next(iter)]
 
         # Move on to the next texel
         tx += 4
