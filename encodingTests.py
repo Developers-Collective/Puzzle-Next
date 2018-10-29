@@ -9,7 +9,7 @@ decoding formulas, as divined from Dolphin).
 def decode3(val):
     return val << 5 | val << 2 | val >> 1
 def decode4(val):
-    return val << 4 | val
+    return val * 17 # equivalent to "val << 4 | val"
 def decode5(val):
     return val << 3 | val >> 2
 

@@ -2025,14 +2025,36 @@ class PiecesModel(QtCore.QAbstractListModel):
 ################## Python-based RGB5a3 Decoding code from my BRFNT program ##################
 
 
+RGB4A3LUT = []
+def PrepareRGB4A3LUT():
+    global RGB4A3LUT
+    RGB4A3LUT = [0] * 0x10000
+    # RGB4A3
+    for d in range(0x8000):
+        alpha = d >> 12
+        alpha = alpha << 5 | alpha << 2 | alpha >> 1
+        red = ((d >> 8) & 0xF) * 17
+        green = ((d >> 4) & 0xF) * 17
+        blue = (d & 0xF) * 17
+        RGB4A3LUT[d] = blue | (green << 8) | (red << 16) | (alpha << 24)
+    # RGB555
+    for d in range(0x8000, 0x10000):
+        red = d >> 10
+        red = red << 3 | red >> 2
+        green = (d >> 5) & 0x1F
+        green = green << 3 | green >> 2
+        blue = d & 0x1F
+        blue = blue << 3 | blue >> 2
+        RGB4A3LUT[d] = blue | (green << 8) | (red << 16) | 0xFF000000
+PrepareRGB4A3LUT()
+
+
 def RGB4A3Decode(tex, useAlpha=True):
     tx = 0; ty = 0
     iter = tex.__iter__()
     dest = [0] * 262144
-    colorCache = {}
 
     # Loop over all texels (of which there are 16384)
-    # lastD = None
     for i in range(16384):
         temp1 = (i // 256) % 8
         if temp1 == 0 or temp1 == 7:
@@ -2065,41 +2087,7 @@ def RGB4A3Decode(tex, useAlpha=True):
                 # Actually render this texel
                 for y in range(ty, ty+4):
                     for x in range(tx, tx+4):
-                        d = next(iter) << 8
-                        d |= next(iter)
-
-                        # Cache decoded colors for performance
-                        if d in colorCache:
-                            dest[x + y * 1024] = colorCache[d]
-                        else:
-                            # These are the actual formulas used on the
-                            # Wii (or at least in Dolphin) for decoding
-                            # these colors
-                            if d & 0x8000:
-                                # RGB555
-                                red = (d >> 10) & 0x1F
-                                red = red << 3 | red >> 2
-                                green = (d >> 5) & 0x1F
-                                green = green << 3 | green >> 2
-                                blue = d & 0x1F
-                                blue = blue << 3 | blue >> 2
-                                alpha = 0xFF
-                            else:
-                                # RGB4A3
-                                if useAlpha:
-                                    alpha = (d >> 12) & 7
-                                    alpha = alpha << 5 | alpha << 2 | alpha >> 1
-                                else:
-                                    alpha = 0xFF
-                                red = (d >> 8) & 0xF
-                                red |= red << 4
-                                green = (d >> 4) & 0xF
-                                green |= green << 4
-                                blue = d & 0xF
-                                blue |= blue << 4
-
-                            argb = blue | (green << 8) | (red << 16) | (alpha << 24)
-                            dest[x + y * 1024] = colorCache[d] = argb
+                        dest[x + y * 1024] = RGB4A3LUT[next(iter) << 8 | next(iter)]
 
         # Move on to the next texel
         tx += 4
