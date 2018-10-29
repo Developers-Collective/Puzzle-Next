@@ -2028,7 +2028,7 @@ class PiecesModel(QtCore.QAbstractListModel):
 RGB4A3LUT = []
 def PrepareRGB4A3LUT():
     global RGB4A3LUT
-    RGB4A3LUT = [0] * 0x10000
+    RGB4A3LUT = [None] * 0x10000
     # RGB4A3
     for d in range(0x8000):
         alpha = d >> 12
@@ -2038,14 +2038,14 @@ def PrepareRGB4A3LUT():
         blue = (d & 0xF) * 17
         RGB4A3LUT[d] = blue | (green << 8) | (red << 16) | (alpha << 24)
     # RGB555
-    for d in range(0x8000, 0x10000):
+    for d in range(0x8000):
         red = d >> 10
         red = red << 3 | red >> 2
         green = (d >> 5) & 0x1F
         green = green << 3 | green >> 2
         blue = d & 0x1F
         blue = blue << 3 | blue >> 2
-        RGB4A3LUT[d] = blue | (green << 8) | (red << 16) | 0xFF000000
+        RGB4A3LUT[d + 0x8000] = blue | (green << 8) | (red << 16) | 0xFF000000
 PrepareRGB4A3LUT()
 
 
