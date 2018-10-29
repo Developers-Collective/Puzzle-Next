@@ -2206,9 +2206,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if HaveNSMBLib:
             tiledata = nsmblib.decompress11LZS(Image)
             argbdata = nsmblib.decodeTileset(tiledata)
-            rgbdata = nsmblib.decodeTilesetNoAlpha(tiledata)
             dest = QtGui.QImage(argbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32_Premultiplied)
-            noalphadest = QtGui.QImage(rgbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32_Premultiplied)
+            if hasattr(nsmblib, 'decodeTilesetNoAlpha'):
+                rgbdata = nsmblib.decodeTilesetNoAlpha(tiledata)
+                noalphadest = QtGui.QImage(rgbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32_Premultiplied)
+            else:
+                noalphadest = RGB4A3Decode(tiledata, False)
         else:
             lz = lz77.LZS11()
             decomp = lz.Decompress11LZS(Image)
@@ -2295,7 +2298,10 @@ class MainWindow(QtWidgets.QMainWindow):
             upperslope = [0, 0]
             lowerslope = [0, 0]
 
-        Tileset.slot = Tileset.objects[0].tiles[0][0][2] & 3
+        if Tileset.objects:
+            Tileset.slot = Tileset.objects[0].tiles[0][0][2] & 3
+        else:
+            Tileset.slot = 1
         self.tileWidget.tilesetType.setText('Pa{0}'.format(Tileset.slot))
 
         self.setuptile()
