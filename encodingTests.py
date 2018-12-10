@@ -14,14 +14,14 @@ def decode5(val):
     return val << 3 | val >> 2
 
 def encode3(val):
-    # 36.5 in binary is 00100100.1
-    return int((val + 18) // 36.5)
+    # 36.5 (73/2) in binary is 00100100.1
+    return ((val + 18) << 1) // 73
 def encode4(val):
     # 17 in binary is 00010001
     return (val + 8) // 17
 def encode5(val):
-    # 8.25 in binary is 00001000.01
-    return int((val + 4) // 8.25)
+    # 8.25 (33/4) in binary is 00001000.01
+    return ((val + 4) << 2) // 33
 
 funcs = [
     (3, encode3, decode3),

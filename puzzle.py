@@ -2143,7 +2143,7 @@ def RGB4A3Encode(tex):
                         # "Toggle Alpha" setting.
 
                         if a < 238: # RGB4A3
-                            alpha = int((a + 18) // 36.5)
+                            alpha = ((a + 18) << 1) // 73
                             red = (r + 8) // 17
                             green = (g + 8) // 17
                             blue = (b + 8) // 17
@@ -2152,9 +2152,9 @@ def RGB4A3Encode(tex):
                             rgba = blue | (green << 4) | (red << 8) | (alpha << 12)
                     
                         else: # RGB555
-                            red = int((r + 4) // 8.25)
-                            green = int((g + 4) // 8.25)
-                            blue = int((b + 4) // 8.25)
+                            red = ((r + 4) << 2) // 33
+                            green = ((g + 4) << 2) // 33
+                            blue = ((b + 4) << 2) // 33
 
                             # 1rrrrrgggggbbbbb
                             rgba = blue | (green << 5) | (red << 10) | (0x8000)
