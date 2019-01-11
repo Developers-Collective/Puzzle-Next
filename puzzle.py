@@ -2107,7 +2107,7 @@ def RGB4A3Decode(tex, useAlpha=True):
 
     # Convert the list of ARGB color values into a bytes object, and
     # then convert that into a QImage
-    return QtGui.QImage(struct.pack('<262144I', *dest), 1024, 256, QtGui.QImage.Format_ARGB32)
+    return QtGui.QImage(struct.pack('<262144I', *dest), 1024, 256, QtGui.QImage.Format_ARGB32_Premultiplied)
 
 
 def RGB4A3Encode(tex):
@@ -2497,7 +2497,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def PackTexture(self):
 
-        tex = QtGui.QImage(1024, 256, QtGui.QImage.Format_ARGB32)
+        tex = QtGui.QImage(1024, 256, QtGui.QImage.Format_ARGB32_Premultiplied)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
         
@@ -2505,7 +2505,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Yoffset = 0
 
         for tile in Tileset.tiles:
-            minitex = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32)
+            minitex = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32_Premultiplied)
             minitex.fill(Qt.transparent)
             minipainter = QtGui.QPainter(minitex)
             
