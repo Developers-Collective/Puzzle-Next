@@ -45,7 +45,7 @@ class TilesetClass():
     class Tile():
         def __init__(self, image, noalpha, bytelist):
             '''Tile Constructor'''
-                        
+
             self.image = image
             self.noalpha = noalpha
             self.byte0 = bytelist[0]
@@ -59,25 +59,25 @@ class TilesetClass():
 
 
     class Object():
-    
+
         def __init__(self, height, width, uslope, lslope, tilelist):
             '''Tile Constructor'''
-            
+
             self.height = height
             self.width = width
-            
+
             self.upperslope = uslope
             self.lowerslope = lslope
-            
+
             self.tiles = tilelist
-                        
+
 
     def __init__(self):
         '''Constructor'''
-        
+
         self.tiles = []
         self.objects = []
-        
+
         self.slot = 0
 
 
@@ -85,41 +85,41 @@ class TilesetClass():
         '''Adds an tile class to the tile list with the passed image or parameters'''
 
         self.tiles.append(self.Tile(image, noalpha, bytelist))
-        
+
 
     def addObject(self, height = 1, width = 1,  uslope = [0, 0], lslope = [0, 0], tilelist = [[(0, 0, 0)]]):
         '''Adds a new object'''
-        
+
         global Tileset
-        
+
         if tilelist == [[(0, 0, 0)]]:
             tilelist = [[(0, 0, Tileset.slot)]]
-            
+
         self.objects.append(self.Object(height, width, uslope, lslope, tilelist))
-        
-        
+
+
     def removeObject(self, index):
         '''Removes an Object by Index number. Don't use this much, because we want objects to preserve their ID.'''
-        
+
         self.objects.pop(index)
-       
-    
+
+
     def clear(self):
         '''Clears the tileset for a new file'''
-        
+
         self.tiles = []
         self.objects = []
-        
-        
+
+
     def clearObjects(self):
         '''Clears the object data'''
-        
+
         self.objects = []
-        
-        
+
+
     def clearCollisions(self):
         '''Clears the collisions data'''
-        
+
         for tile in self.tiles:
             tile.byte0 = 0
             tile.byte1 = 0
@@ -136,7 +136,7 @@ class TilesetClass():
 
 
 class paletteWidget(QtWidgets.QWidget):
-    
+
     def __init__(self, window):
         super(paletteWidget, self).__init__(window)
 
@@ -154,17 +154,17 @@ class paletteWidget(QtWidgets.QWidget):
         rowF = QtWidgets.QHBoxLayout()
 
         path = os.path.dirname(os.path.abspath(sys.argv[0])) + '/Icons/'
-        
-        self.coreTypes = [['Default', QtGui.QIcon(path + 'Core/Default.png'), 'The standard type for tiles.\n\nAny regular terrain or backgrounds\nshould be of generic type. It\n has no collision properties.'], 
-                     ['Slope', QtGui.QIcon(path + 'Core/Slope.png'), 'Defines a sloped tile\n\nSloped tiles have sloped collisions,\nwhich Mario can slide on.'], 
-                     ['Reverse Slope', QtGui.QIcon(path + 'Core/RSlope.png'), 'Defines an upside-down slope.\n\nSloped tiles have sloped collisions,\nwhich Mario can slide on.'], 
+
+        self.coreTypes = [['Default', QtGui.QIcon(path + 'Core/Default.png'), 'The standard type for tiles.\n\nAny regular terrain or backgrounds\nshould be of generic type. It\n has no collision properties.'],
+                     ['Slope', QtGui.QIcon(path + 'Core/Slope.png'), 'Defines a sloped tile\n\nSloped tiles have sloped collisions,\nwhich Mario can slide on.'],
+                     ['Reverse Slope', QtGui.QIcon(path + 'Core/RSlope.png'), 'Defines an upside-down slope.\n\nSloped tiles have sloped collisions,\nwhich Mario can slide on.'],
                      ['Partial Block', QtGui.QIcon(path + 'Partial/Full.png'), 'Used for blocks with partial collisions.\n\nVery useful for Mini-Mario secret\nareas, but also for providing a more\naccurate collision map for your tiles.'],
-                     ['Coin', QtGui.QIcon(path + 'Core/Coin.png'), 'Creates a coin.\n\nCoins have no solid collision,\nand when touched will disappear\nand increment the coin counter.'], 
-                     ['Explodable Block', QtGui.QIcon(path + 'Core/Explode.png'), 'Specifies blocks which can explode.\n\nThese blocks will shatter into componenent\npieces when hit by a bom-omb or meteor.\nThe pieces themselves may be hardcoded\nand must be included in the tileset.\nBehaviour may be sporadic.'], 
-                     ['Climable Grid', QtGui.QIcon(path + 'Core/Climb.png'), 'Creates terrain that can be climbed on.\n\nClimable terrain cannot be walked on.\nWhen Mario is overtop of a climable\ntile and the player presses up,\nMario will enter a climbing state.'], 
-                     ['Spike', QtGui.QIcon(path + 'Core/Spike.png'), 'Dangerous Spikey spikes.\n\nSpike tiles will damage Mario one hit\nwhen they are touched.'], 
-                     ['Pipe', QtGui.QIcon(path + 'Core/Pipe.png'), "Denotes a pipe tile.\n\nPipe tiles are specified according to\nthe part of the pipe. It's important\nto specify the right parts or\nentrances will not function correctly."], 
-                     ['Rails', QtGui.QIcon(path + 'Core/Rails.png'), 'Used for all types of rails.\n\nRails are replaced in-game with\n3D models, so modifying these\ntiles with different graphics\nwill have no effect.'], 
+                     ['Coin', QtGui.QIcon(path + 'Core/Coin.png'), 'Creates a coin.\n\nCoins have no solid collision,\nand when touched will disappear\nand increment the coin counter.'],
+                     ['Explodable Block', QtGui.QIcon(path + 'Core/Explode.png'), 'Specifies blocks which can explode.\n\nThese blocks will shatter into componenent\npieces when hit by a bom-omb or meteor.\nThe pieces themselves may be hardcoded\nand must be included in the tileset.\nBehaviour may be sporadic.'],
+                     ['Climable Grid', QtGui.QIcon(path + 'Core/Climb.png'), 'Creates terrain that can be climbed on.\n\nClimable terrain cannot be walked on.\nWhen Mario is overtop of a climable\ntile and the player presses up,\nMario will enter a climbing state.'],
+                     ['Spike', QtGui.QIcon(path + 'Core/Spike.png'), 'Dangerous Spikey spikes.\n\nSpike tiles will damage Mario one hit\nwhen they are touched.'],
+                     ['Pipe', QtGui.QIcon(path + 'Core/Pipe.png'), "Denotes a pipe tile.\n\nPipe tiles are specified according to\nthe part of the pipe. It's important\nto specify the right parts or\nentrances will not function correctly."],
+                     ['Rails', QtGui.QIcon(path + 'Core/Rails.png'), 'Used for all types of rails.\n\nRails are replaced in-game with\n3D models, so modifying these\ntiles with different graphics\nwill have no effect.'],
                      ['Conveyor Belt', QtGui.QIcon(path + 'Core/Conveyor.png'), 'Defines moving tiles.\n\nMoving tiles will move Mario in one\ndirection or another. Parameters are\nlargely unknown at this time.']]
 
         i = 0
@@ -205,18 +205,18 @@ class paletteWidget(QtWidgets.QWidget):
         self.propertyGroup.setTitle('Properties:')
         propertyLayout = QtWidgets.QVBoxLayout()
         self.propertyWidgets = []
-        propertyList = [['Solid', QtGui.QIcon(path + 'Prop/Solid.png'), 'Tiles you can walk on.\n\nThe tiles we be a solid basic square\nthrough which Mario can not pass.'], 
-                        ['Block', QtGui.QIcon(path + 'Prop/Break.png'), 'This denotes breakable tiles such\nas brick blocks and Q blocks. It is likely that these\nare subject to the same issues as\nexplodable blocks. They emit a coin\nwhen hit.'],            
-                        ['Falling Block', QtGui.QIcon(path + 'Prop/Fall.png'), 'Sets the block to fall after a set period. The\nblock is sadly replaced with a donut lift model\nfor all animations.'], 
+        propertyList = [['Solid', QtGui.QIcon(path + 'Prop/Solid.png'), 'Tiles you can walk on.\n\nThe tiles we be a solid basic square\nthrough which Mario can not pass.'],
+                        ['Block', QtGui.QIcon(path + 'Prop/Break.png'), 'This denotes breakable tiles such\nas brick blocks and Q blocks. It is likely that these\nare subject to the same issues as\nexplodable blocks. They emit a coin\nwhen hit.'],
+                        ['Falling Block', QtGui.QIcon(path + 'Prop/Fall.png'), 'Sets the block to fall after a set period. The\nblock is sadly replaced with a donut lift model\nfor all animations.'],
                         ['Ledge', QtGui.QIcon(path + 'Prop/Ledge.png'), 'A ledge tile with unique properties.\n\nLedges can be shimmied along or\nhung from, but not walked along\nas with normal terrain. Must have the\nledge terrain type set as well.']]
-        
+
         for item in range(len(propertyList)):
             self.propertyWidgets.append(QtWidgets.QCheckBox(propertyList[item][0]))
             self.propertyWidgets[item].setIcon(propertyList[item][1])
             self.propertyWidgets[item].setIconSize(QtCore.QSize(24, 24))
             self.propertyWidgets[item].setToolTip(propertyList[item][2])
             propertyLayout.addWidget(self.propertyWidgets[item])
-        
+
 
         self.PassThrough = QtWidgets.QRadioButton('Pass-Through')
         self.PassDown = QtWidgets.QRadioButton('Pass-Down')
@@ -245,29 +245,29 @@ class paletteWidget(QtWidgets.QWidget):
         # Terrain Type ComboBox
         self.terrainType = QtWidgets.QComboBox()
         self.terrainLabel = QtWidgets.QLabel('Terrain Type')
- 
+
         self.terrainTypes = [['Default', QtGui.QIcon(path + 'Core/Default.png')],
-                        ['Ice', QtGui.QIcon(path + 'Terrain/Ice.png')], 
-                        ['Snow', QtGui.QIcon(path + 'Terrain/Snow.png')], 
-                        ['Quicksand', QtGui.QIcon(path + 'Terrain/Quicksand.png')], 
-                        ['Conveyor Belt Right', QtGui.QIcon(path + 'Core/Conveyor.png')], 
+                        ['Ice', QtGui.QIcon(path + 'Terrain/Ice.png')],
+                        ['Snow', QtGui.QIcon(path + 'Terrain/Snow.png')],
+                        ['Quicksand', QtGui.QIcon(path + 'Terrain/Quicksand.png')],
+                        ['Conveyor Belt Right', QtGui.QIcon(path + 'Core/Conveyor.png')],
                         ['Conveyor Belt Left', QtGui.QIcon(path + 'Core/Conveyor.png')],
-                        ['Horiz. Climbing Rope', QtGui.QIcon(path + 'Terrain/Rope.png')], 
-                        ['Damage Tile', QtGui.QIcon(path + 'Terrain/Spike.png')], 
-                        ['Ledge', QtGui.QIcon(path + 'Terrain/Ledge.png')], 
-                        ['Ladder', QtGui.QIcon(path + 'Terrain/Ladder.png')], 
-                        ['Staircase', QtGui.QIcon(path + 'Terrain/Stairs.png')], 
-                        ['Carpet', QtGui.QIcon(path + 'Terrain/Carpet.png')], 
-                        ['Dusty', QtGui.QIcon(path + 'Terrain/Dust.png')], 
-                        ['Grass', QtGui.QIcon(path + 'Terrain/Grass.png')], 
-                        ['Muffled', QtGui.QIcon(path + 'Unknown.png')], 
+                        ['Horiz. Climbing Rope', QtGui.QIcon(path + 'Terrain/Rope.png')],
+                        ['Damage Tile', QtGui.QIcon(path + 'Terrain/Spike.png')],
+                        ['Ledge', QtGui.QIcon(path + 'Terrain/Ledge.png')],
+                        ['Ladder', QtGui.QIcon(path + 'Terrain/Ladder.png')],
+                        ['Staircase', QtGui.QIcon(path + 'Terrain/Stairs.png')],
+                        ['Carpet', QtGui.QIcon(path + 'Terrain/Carpet.png')],
+                        ['Dusty', QtGui.QIcon(path + 'Terrain/Dust.png')],
+                        ['Grass', QtGui.QIcon(path + 'Terrain/Grass.png')],
+                        ['Muffled', QtGui.QIcon(path + 'Unknown.png')],
                         ['Beach Sand', QtGui.QIcon(path + 'Terrain/Sand.png')]]
 
         for item in range(len(self.terrainTypes)):
             self.terrainType.addItem(self.terrainTypes[item][1], self.terrainTypes[item][0])
             self.terrainType.setIconSize(QtCore.QSize(24, 24))
         self.terrainType.setToolTip('Set the various types of terrain.\n\n'
-                                    
+
                                     '<b>Default:</b> \nTerrain with no paticular properties.\n\n'
                                     '<b>Ice:</b> \nWill be slippery.\n\n'
                                     '<b>Snow:</b> \nWill emit puffs of snow and snow noises.\n\n'
@@ -286,204 +286,204 @@ class paletteWidget(QtWidgets.QWidget):
                                     "<b>Beach Sand:</b> \nWill create sand tufts around\nMario's feet."
                                    )
 
-        
-        
+
+
         # Parameters ComboBox
         self.parameters = QtWidgets.QComboBox()
         self.parameterLabel = QtWidgets.QLabel('Parameters')
         self.parameters.addItem('None')
 
-        
+
         GenericParams = [['None', QtGui.QIcon(path + 'Core/Default.png')],
-                         ['Beanstalk Stop', QtGui.QIcon(path + '/Generic/Beanstopper.png')], 
-                         ['Dash Coin', QtGui.QIcon(path + 'Generic/Outline.png')], 
+                         ['Beanstalk Stop', QtGui.QIcon(path + '/Generic/Beanstopper.png')],
+                         ['Dash Coin', QtGui.QIcon(path + 'Generic/Outline.png')],
                          ['Battle Coin', QtGui.QIcon(path + 'Generic/Outline.png')],
-                         ['Red Block Outline A', QtGui.QIcon(path + 'Generic/RedBlock.png')], 
-                         ['Red Block Outline B', QtGui.QIcon(path + 'Generic/RedBlock.png')], 
-                         ['Cave Entrance Right', QtGui.QIcon(path + 'Generic/Cave-Right.png')], 
-                         ['Cave Entrance Left', QtGui.QIcon(path + 'Generic/Cave-Left.png')], 
+                         ['Red Block Outline A', QtGui.QIcon(path + 'Generic/RedBlock.png')],
+                         ['Red Block Outline B', QtGui.QIcon(path + 'Generic/RedBlock.png')],
+                         ['Cave Entrance Right', QtGui.QIcon(path + 'Generic/Cave-Right.png')],
+                         ['Cave Entrance Left', QtGui.QIcon(path + 'Generic/Cave-Left.png')],
                          ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
                          ['Unknown', QtGui.QIcon(path + 'Unknown.png')]]
-        
+
         RailParams = [['None', QtGui.QIcon(path + 'Core/Default.png')],
-                      ['Rail: Upslope', QtGui.QIcon(path + '')], 
-                      ['Rail: Downslope', QtGui.QIcon(path + '')], 
-                      ['Rail: 90 degree Corner Fill', QtGui.QIcon(path + '')], 
-                      ['Rail: 90 degree Corner', QtGui.QIcon(path + '')], 
-                      ['Rail: Horizontal Rail', QtGui.QIcon(path + '')], 
-                      ['Rail: Vertical Rail', QtGui.QIcon(path + '')], 
-                      ['Rail: Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                      ['Rail: Gentle Upslope 2', QtGui.QIcon(path + '')], 
-                      ['Rail: Gentle Upslope 1', QtGui.QIcon(path + '')], 
-                      ['Rail: Gentle Downslope 2', QtGui.QIcon(path + '')], 
-                      ['Rail: Gentle Downslope 1', QtGui.QIcon(path + '')], 
-                      ['Rail: Steep Upslope 2', QtGui.QIcon(path + '')], 
-                      ['Rail: Steep Upslope 1', QtGui.QIcon(path + '')], 
-                      ['Rail: Steep Downslope 2', QtGui.QIcon(path + '')], 
-                      ['Rail: Steep Downslope 1', QtGui.QIcon(path + '')], 
-                      ['Rail: One Panel Circle', QtGui.QIcon(path + '')], 
-                      ['Rail: 2x2 Circle Upper Right', QtGui.QIcon(path + '')], 
-                      ['Rail: 2x2 Circle Upper Left', QtGui.QIcon(path + '')], 
-                      ['Rail: 2x2 Circle Lower Right', QtGui.QIcon(path + '')], 
-                      ['Rail: 2x2 Circle Lower Left', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Top Left Corner', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Top Left', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Top Right', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Top Right Corner', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Upper Left Side', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Upper Right Side', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Lower Left Side', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Lower Right Side', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Bottom Left Corner', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Bottom Left', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Bottom Right', QtGui.QIcon(path + '')], 
-                      ['Rail: 4x4 Circle Bottom Right Corner', QtGui.QIcon(path + '')], 
-                      ['Rail: Unknown', QtGui.QIcon(path + 'Unknown.png')], 
+                      ['Rail: Upslope', QtGui.QIcon(path + '')],
+                      ['Rail: Downslope', QtGui.QIcon(path + '')],
+                      ['Rail: 90 degree Corner Fill', QtGui.QIcon(path + '')],
+                      ['Rail: 90 degree Corner', QtGui.QIcon(path + '')],
+                      ['Rail: Horizontal Rail', QtGui.QIcon(path + '')],
+                      ['Rail: Vertical Rail', QtGui.QIcon(path + '')],
+                      ['Rail: Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                      ['Rail: Gentle Upslope 2', QtGui.QIcon(path + '')],
+                      ['Rail: Gentle Upslope 1', QtGui.QIcon(path + '')],
+                      ['Rail: Gentle Downslope 2', QtGui.QIcon(path + '')],
+                      ['Rail: Gentle Downslope 1', QtGui.QIcon(path + '')],
+                      ['Rail: Steep Upslope 2', QtGui.QIcon(path + '')],
+                      ['Rail: Steep Upslope 1', QtGui.QIcon(path + '')],
+                      ['Rail: Steep Downslope 2', QtGui.QIcon(path + '')],
+                      ['Rail: Steep Downslope 1', QtGui.QIcon(path + '')],
+                      ['Rail: One Panel Circle', QtGui.QIcon(path + '')],
+                      ['Rail: 2x2 Circle Upper Right', QtGui.QIcon(path + '')],
+                      ['Rail: 2x2 Circle Upper Left', QtGui.QIcon(path + '')],
+                      ['Rail: 2x2 Circle Lower Right', QtGui.QIcon(path + '')],
+                      ['Rail: 2x2 Circle Lower Left', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Top Left Corner', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Top Left', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Top Right', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Top Right Corner', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Upper Left Side', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Upper Right Side', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Lower Left Side', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Lower Right Side', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Bottom Left Corner', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Bottom Left', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Bottom Right', QtGui.QIcon(path + '')],
+                      ['Rail: 4x4 Circle Bottom Right Corner', QtGui.QIcon(path + '')],
+                      ['Rail: Unknown', QtGui.QIcon(path + 'Unknown.png')],
                       ['Rail: End Stop', QtGui.QIcon(path + '')]]
-        
+
         ClimableGridParams = [['None', QtGui.QIcon(path + 'Core/Default.png')],
-                             ['Free Move', QtGui.QIcon(path + 'Climb/Center.png')], 
-                             ['Upper Left Corner', QtGui.QIcon(path + 'Climb/UpperLeft.png')], 
-                             ['Top', QtGui.QIcon(path + 'Climb/Top.png')], 
-                             ['Upper Right Corner', QtGui.QIcon(path + 'Climb/UpperRight.png')], 
-                             ['Left Side', QtGui.QIcon(path + 'Climb/Left.png')], 
-                             ['Center', QtGui.QIcon(path + 'Climb/Center.png')], 
-                             ['Right Side', QtGui.QIcon(path + 'Climb/Right.png')], 
-                             ['Lower Left Corner', QtGui.QIcon(path + 'Climb/LowerLeft.png')], 
-                             ['Bottom', QtGui.QIcon(path + 'Climb/Bottom.png')], 
+                             ['Free Move', QtGui.QIcon(path + 'Climb/Center.png')],
+                             ['Upper Left Corner', QtGui.QIcon(path + 'Climb/UpperLeft.png')],
+                             ['Top', QtGui.QIcon(path + 'Climb/Top.png')],
+                             ['Upper Right Corner', QtGui.QIcon(path + 'Climb/UpperRight.png')],
+                             ['Left Side', QtGui.QIcon(path + 'Climb/Left.png')],
+                             ['Center', QtGui.QIcon(path + 'Climb/Center.png')],
+                             ['Right Side', QtGui.QIcon(path + 'Climb/Right.png')],
+                             ['Lower Left Corner', QtGui.QIcon(path + 'Climb/LowerLeft.png')],
+                             ['Bottom', QtGui.QIcon(path + 'Climb/Bottom.png')],
                              ['Lower Right Corner', QtGui.QIcon(path + 'Climb/LowerRight.png')]]
-        
-        
+
+
         CoinParams = [['Generic Coin', QtGui.QIcon(path + 'QBlock/Coin.png')],
-                     ['Coin', QtGui.QIcon(path + 'Unknown.png')], 
+                     ['Coin', QtGui.QIcon(path + 'Unknown.png')],
                      ['Nothing', QtGui.QIcon(path + 'Unknown.png')],
-                     ['Coin', QtGui.QIcon(path + 'Unknown.png')], 
+                     ['Coin', QtGui.QIcon(path + 'Unknown.png')],
                      ['Pow Block Coin', QtGui.QIcon(path + 'Coin/POW.png')]]
-                 
+
         ExplodableBlockParams = [['None', QtGui.QIcon(path + 'Core/Default.png')],
-                                ['Stone Block', QtGui.QIcon(path + 'Explode/Stone.png')], 
-                                ['Wooden Block', QtGui.QIcon(path + 'Explode/Wooden.png')], 
-                                ['Red Block', QtGui.QIcon(path + 'Explode/Red.png')], 
-                                ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                                ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
+                                ['Stone Block', QtGui.QIcon(path + 'Explode/Stone.png')],
+                                ['Wooden Block', QtGui.QIcon(path + 'Explode/Wooden.png')],
+                                ['Red Block', QtGui.QIcon(path + 'Explode/Red.png')],
+                                ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                                ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
                                 ['Unknown', QtGui.QIcon(path + 'Unknown.png')]]
-        
-        PipeParams = [['Vert. Top Entrance Left', QtGui.QIcon(path + 'Pipes/')], 
-                      ['Vert. Top Entrance Right', QtGui.QIcon(path + '')], 
-                      ['Vert. Bottom Entrance Left', QtGui.QIcon(path + '')], 
-                      ['Vert. Bottom Entrance Right', QtGui.QIcon(path + '')], 
-                      ['Vert. Center Left', QtGui.QIcon(path + '')], 
-                      ['Vert. Center Right', QtGui.QIcon(path + '')], 
-                      ['Vert. On Top Junction Left', QtGui.QIcon(path + '')], 
-                      ['Vert. On Top Junction Right', QtGui.QIcon(path + '')], 
-                      ['Horiz. Left Entrance Top', QtGui.QIcon(path + '')], 
-                      ['Horiz. Left Entrance Bottom', QtGui.QIcon(path + '')], 
-                      ['Horiz. Right Entrance Top', QtGui.QIcon(path + '')], 
-                      ['Horiz. Right Entrance Bottom', QtGui.QIcon(path + '')], 
-                      ['Horiz. Center Left', QtGui.QIcon(path + '')], 
-                      ['Horiz. Center Right', QtGui.QIcon(path + '')], 
-                      ['Horiz. On Top Junction Top', QtGui.QIcon(path + '')], 
-                      ['Horiz. On Top Junction Bottom', QtGui.QIcon(path + '')], 
-                      ['Vert. Mini Pipe Top', QtGui.QIcon(path + '')], 
-                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                      ['Vert. Mini Pipe Bottom', QtGui.QIcon(path + '')], 
-                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                      ['Vert. On Top Mini-Junction', QtGui.QIcon(path + '')], 
-                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                      ['Horiz. Mini Pipe Left', QtGui.QIcon(path + '')], 
-                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                      ['Horiz. Mini Pipe Right', QtGui.QIcon(path + '')], 
-                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')], 
-                      ['Vert. Mini Pipe Center', QtGui.QIcon(path + '')], 
-                      ['Horiz. Mini Pipe Center', QtGui.QIcon(path + '')], 
-                      ['Horiz. On Top Mini-Junction', QtGui.QIcon(path + '')], 
+
+        PipeParams = [['Vert. Top Entrance Left', QtGui.QIcon(path + 'Pipes/')],
+                      ['Vert. Top Entrance Right', QtGui.QIcon(path + '')],
+                      ['Vert. Bottom Entrance Left', QtGui.QIcon(path + '')],
+                      ['Vert. Bottom Entrance Right', QtGui.QIcon(path + '')],
+                      ['Vert. Center Left', QtGui.QIcon(path + '')],
+                      ['Vert. Center Right', QtGui.QIcon(path + '')],
+                      ['Vert. On Top Junction Left', QtGui.QIcon(path + '')],
+                      ['Vert. On Top Junction Right', QtGui.QIcon(path + '')],
+                      ['Horiz. Left Entrance Top', QtGui.QIcon(path + '')],
+                      ['Horiz. Left Entrance Bottom', QtGui.QIcon(path + '')],
+                      ['Horiz. Right Entrance Top', QtGui.QIcon(path + '')],
+                      ['Horiz. Right Entrance Bottom', QtGui.QIcon(path + '')],
+                      ['Horiz. Center Left', QtGui.QIcon(path + '')],
+                      ['Horiz. Center Right', QtGui.QIcon(path + '')],
+                      ['Horiz. On Top Junction Top', QtGui.QIcon(path + '')],
+                      ['Horiz. On Top Junction Bottom', QtGui.QIcon(path + '')],
+                      ['Vert. Mini Pipe Top', QtGui.QIcon(path + '')],
+                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                      ['Vert. Mini Pipe Bottom', QtGui.QIcon(path + '')],
+                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                      ['Vert. On Top Mini-Junction', QtGui.QIcon(path + '')],
+                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                      ['Horiz. Mini Pipe Left', QtGui.QIcon(path + '')],
+                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                      ['Horiz. Mini Pipe Right', QtGui.QIcon(path + '')],
+                      ['Unknown', QtGui.QIcon(path + 'Unknown.png')],
+                      ['Vert. Mini Pipe Center', QtGui.QIcon(path + '')],
+                      ['Horiz. Mini Pipe Center', QtGui.QIcon(path + '')],
+                      ['Horiz. On Top Mini-Junction', QtGui.QIcon(path + '')],
                       ['Block Covered Corner', QtGui.QIcon(path + '')]]
-                                       
+
         PartialBlockParams = [['None', QtGui.QIcon(path + 'Core/Default.png')],
-                              ['Upper Left', QtGui.QIcon(path + 'Partial/UpLeft.png')], 
-                              ['Upper Right', QtGui.QIcon(path + 'Partial/UpRight.png')], 
-                              ['Top Half', QtGui.QIcon(path + 'Partial/TopHalf.png')], 
-                              ['Lower Left', QtGui.QIcon(path + 'Partial/LowLeft.png')], 
-                              ['Left Half', QtGui.QIcon(path + 'Partial/LeftHalf.png')], 
-                              ['Diagonal Downwards', QtGui.QIcon(path + 'Partial/DiagDn.png')], 
-                              ['Upper Left 3/4', QtGui.QIcon(path + 'Partial/UpLeft3-4.png')], 
-                              ['Lower Right', QtGui.QIcon(path + 'Partial/LowRight.png')], 
-                              ['Diagonal Downwards', QtGui.QIcon(path + 'Partial/DiagDn.png')], 
-                              ['Right Half', QtGui.QIcon(path + 'Partial/RightHalf.png')], 
-                              ['Upper Right 3/4', QtGui.QIcon(path + 'Partial/UpRig3-4.png')], 
-                              ['Lower Half', QtGui.QIcon(path + 'Partial/LowHalf.png')], 
-                              ['Lower Left 3/4', QtGui.QIcon(path + 'Partial/LowLeft3-4.png')], 
-                              ['Lower Right 3/4', QtGui.QIcon(path + 'Partial/LowRight3-4.png')], 
+                              ['Upper Left', QtGui.QIcon(path + 'Partial/UpLeft.png')],
+                              ['Upper Right', QtGui.QIcon(path + 'Partial/UpRight.png')],
+                              ['Top Half', QtGui.QIcon(path + 'Partial/TopHalf.png')],
+                              ['Lower Left', QtGui.QIcon(path + 'Partial/LowLeft.png')],
+                              ['Left Half', QtGui.QIcon(path + 'Partial/LeftHalf.png')],
+                              ['Diagonal Downwards', QtGui.QIcon(path + 'Partial/DiagDn.png')],
+                              ['Upper Left 3/4', QtGui.QIcon(path + 'Partial/UpLeft3-4.png')],
+                              ['Lower Right', QtGui.QIcon(path + 'Partial/LowRight.png')],
+                              ['Diagonal Downwards', QtGui.QIcon(path + 'Partial/DiagDn.png')],
+                              ['Right Half', QtGui.QIcon(path + 'Partial/RightHalf.png')],
+                              ['Upper Right 3/4', QtGui.QIcon(path + 'Partial/UpRig3-4.png')],
+                              ['Lower Half', QtGui.QIcon(path + 'Partial/LowHalf.png')],
+                              ['Lower Left 3/4', QtGui.QIcon(path + 'Partial/LowLeft3-4.png')],
+                              ['Lower Right 3/4', QtGui.QIcon(path + 'Partial/LowRight3-4.png')],
                               ['Full Brick', QtGui.QIcon(path + 'Partial/Full.png')]]
-        
-        SlopeParams = [['Steep Upslope', QtGui.QIcon(path + 'Slope/steepslopeleft.png')], 
-                       ['Steep Downslope', QtGui.QIcon(path + 'Slope/steepsloperight.png')], 
-                       ['Upslope 1', QtGui.QIcon(path + 'Slope/slopeleft.png')], 
-                       ['Upslope 2', QtGui.QIcon(path + 'Slope/slope3left.png')], 
-                       ['Downslope 1', QtGui.QIcon(path + 'Slope/slope3right.png')], 
-                       ['Downslope 2', QtGui.QIcon(path + 'Slope/sloperight.png')], 
-                       ['Steep Upslope 1', QtGui.QIcon(path + 'Slope/vsteepup1.png')], 
-                       ['Steep Upslope 2', QtGui.QIcon(path + 'Slope/vsteepup2.png')], 
-                       ['Steep Downslope 1', QtGui.QIcon(path + 'Slope/vsteepdown1.png')], 
-                       ['Steep Downslope 2', QtGui.QIcon(path + 'Slope/vsteepdown2.png')], 
-                       ['Slope Edge (solid)', QtGui.QIcon(path + 'Slope/edge.png')], 
-                       ['Gentle Upslope 1', QtGui.QIcon(path + 'Slope/gentleupslope1.png')], 
-                       ['Gentle Upslope 2', QtGui.QIcon(path + 'Slope/gentleupslope2.png')], 
-                       ['Gentle Upslope 3', QtGui.QIcon(path + 'Slope/gentleupslope3.png')], 
-                       ['Gentle Upslope 4', QtGui.QIcon(path + 'Slope/gentleupslope4.png')], 
-                       ['Gentle Downslope 1', QtGui.QIcon(path + 'Slope/gentledownslope1.png')], 
-                       ['Gentle Downslope 2', QtGui.QIcon(path + 'Slope/gentledownslope2.png')], 
-                       ['Gentle Downslope 3', QtGui.QIcon(path + 'Slope/gentledownslope3.png')], 
+
+        SlopeParams = [['Steep Upslope', QtGui.QIcon(path + 'Slope/steepslopeleft.png')],
+                       ['Steep Downslope', QtGui.QIcon(path + 'Slope/steepsloperight.png')],
+                       ['Upslope 1', QtGui.QIcon(path + 'Slope/slopeleft.png')],
+                       ['Upslope 2', QtGui.QIcon(path + 'Slope/slope3left.png')],
+                       ['Downslope 1', QtGui.QIcon(path + 'Slope/slope3right.png')],
+                       ['Downslope 2', QtGui.QIcon(path + 'Slope/sloperight.png')],
+                       ['Steep Upslope 1', QtGui.QIcon(path + 'Slope/vsteepup1.png')],
+                       ['Steep Upslope 2', QtGui.QIcon(path + 'Slope/vsteepup2.png')],
+                       ['Steep Downslope 1', QtGui.QIcon(path + 'Slope/vsteepdown1.png')],
+                       ['Steep Downslope 2', QtGui.QIcon(path + 'Slope/vsteepdown2.png')],
+                       ['Slope Edge (solid)', QtGui.QIcon(path + 'Slope/edge.png')],
+                       ['Gentle Upslope 1', QtGui.QIcon(path + 'Slope/gentleupslope1.png')],
+                       ['Gentle Upslope 2', QtGui.QIcon(path + 'Slope/gentleupslope2.png')],
+                       ['Gentle Upslope 3', QtGui.QIcon(path + 'Slope/gentleupslope3.png')],
+                       ['Gentle Upslope 4', QtGui.QIcon(path + 'Slope/gentleupslope4.png')],
+                       ['Gentle Downslope 1', QtGui.QIcon(path + 'Slope/gentledownslope1.png')],
+                       ['Gentle Downslope 2', QtGui.QIcon(path + 'Slope/gentledownslope2.png')],
+                       ['Gentle Downslope 3', QtGui.QIcon(path + 'Slope/gentledownslope3.png')],
                        ['Gentle Downslope 4', QtGui.QIcon(path + 'Slope/gentledownslope4.png')]]
-                       
-        ReverseSlopeParams = [['Steep Downslope', QtGui.QIcon(path + 'Slope/Rsteepslopeleft.png')], 
-                              ['Steep Upslope', QtGui.QIcon(path + 'Slope/Rsteepsloperight.png')], 
-                              ['Downslope 1', QtGui.QIcon(path + 'Slope/Rslopeleft.png')], 
-                              ['Downslope 2', QtGui.QIcon(path + 'Slope/Rslope3left.png')], 
-                              ['Upslope 1', QtGui.QIcon(path + 'Slope/Rslope3right.png')], 
-                              ['Upslope 2', QtGui.QIcon(path + 'Slope/Rsloperight.png')], 
-                              ['Steep Downslope 1', QtGui.QIcon(path + 'Slope/Rvsteepdown1.png')], 
-                              ['Steep Downslope 2', QtGui.QIcon(path + 'Slope/Rvsteepdown2.png')], 
-                              ['Steep Upslope 1', QtGui.QIcon(path + 'Slope/Rvsteepup1.png')], 
-                              ['Steep Upslope 2', QtGui.QIcon(path + 'Slope/Rvsteepup2.png')], 
-                              ['Slope Edge (solid)', QtGui.QIcon(path + 'Slope/edge.png')], 
-                              ['Gentle Downslope 1', QtGui.QIcon(path + 'Slope/Rgentledownslope1.png')], 
-                              ['Gentle Downslope 2', QtGui.QIcon(path + 'Slope/Rgentledownslope2.png')], 
-                              ['Gentle Downslope 3', QtGui.QIcon(path + 'Slope/Rgentledownslope3.png')], 
-                              ['Gentle Downslope 4', QtGui.QIcon(path + 'Slope/Rgentledownslope4.png')], 
-                              ['Gentle Upslope 1', QtGui.QIcon(path + 'Slope/Rgentleupslope1.png')], 
-                              ['Gentle Upslope 2', QtGui.QIcon(path + 'Slope/Rgentleupslope2.png')], 
-                              ['Gentle Upslope 3', QtGui.QIcon(path + 'Slope/Rgentleupslope3.png')], 
+
+        ReverseSlopeParams = [['Steep Downslope', QtGui.QIcon(path + 'Slope/Rsteepslopeleft.png')],
+                              ['Steep Upslope', QtGui.QIcon(path + 'Slope/Rsteepsloperight.png')],
+                              ['Downslope 1', QtGui.QIcon(path + 'Slope/Rslopeleft.png')],
+                              ['Downslope 2', QtGui.QIcon(path + 'Slope/Rslope3left.png')],
+                              ['Upslope 1', QtGui.QIcon(path + 'Slope/Rslope3right.png')],
+                              ['Upslope 2', QtGui.QIcon(path + 'Slope/Rsloperight.png')],
+                              ['Steep Downslope 1', QtGui.QIcon(path + 'Slope/Rvsteepdown1.png')],
+                              ['Steep Downslope 2', QtGui.QIcon(path + 'Slope/Rvsteepdown2.png')],
+                              ['Steep Upslope 1', QtGui.QIcon(path + 'Slope/Rvsteepup1.png')],
+                              ['Steep Upslope 2', QtGui.QIcon(path + 'Slope/Rvsteepup2.png')],
+                              ['Slope Edge (solid)', QtGui.QIcon(path + 'Slope/edge.png')],
+                              ['Gentle Downslope 1', QtGui.QIcon(path + 'Slope/Rgentledownslope1.png')],
+                              ['Gentle Downslope 2', QtGui.QIcon(path + 'Slope/Rgentledownslope2.png')],
+                              ['Gentle Downslope 3', QtGui.QIcon(path + 'Slope/Rgentledownslope3.png')],
+                              ['Gentle Downslope 4', QtGui.QIcon(path + 'Slope/Rgentledownslope4.png')],
+                              ['Gentle Upslope 1', QtGui.QIcon(path + 'Slope/Rgentleupslope1.png')],
+                              ['Gentle Upslope 2', QtGui.QIcon(path + 'Slope/Rgentleupslope2.png')],
+                              ['Gentle Upslope 3', QtGui.QIcon(path + 'Slope/Rgentleupslope3.png')],
                               ['Gentle Upslope 4', QtGui.QIcon(path + 'Slope/Rgentleupslope4.png')]]
-        
-        SpikeParams = [['Double Left Spikes', QtGui.QIcon(path + 'Spike/Left.png')], 
-                       ['Double Right Spikes', QtGui.QIcon(path + 'Spike/Right.png')], 
-                       ['Double Upwards Spikes', QtGui.QIcon(path + 'Spike/Up.png')], 
-                       ['Double Downwards Spikes', QtGui.QIcon(path + 'Spike/Down.png')], 
-                       ['Long Spike Down 1', QtGui.QIcon(path + 'Spike/LongDown1.png')], 
-                       ['Long Spike Down 2', QtGui.QIcon(path + 'Spike/LongDown2.png')], 
-                       ['Single Downwards Spike', QtGui.QIcon(path + 'Spike/SingDown.png')], 
+
+        SpikeParams = [['Double Left Spikes', QtGui.QIcon(path + 'Spike/Left.png')],
+                       ['Double Right Spikes', QtGui.QIcon(path + 'Spike/Right.png')],
+                       ['Double Upwards Spikes', QtGui.QIcon(path + 'Spike/Up.png')],
+                       ['Double Downwards Spikes', QtGui.QIcon(path + 'Spike/Down.png')],
+                       ['Long Spike Down 1', QtGui.QIcon(path + 'Spike/LongDown1.png')],
+                       ['Long Spike Down 2', QtGui.QIcon(path + 'Spike/LongDown2.png')],
+                       ['Single Downwards Spike', QtGui.QIcon(path + 'Spike/SingDown.png')],
                        ['Spike Block', QtGui.QIcon(path + 'Unknown.png')]]
-        
-        ConveyorBeltParams = [['Slow', QtGui.QIcon(path + 'Unknown.png')], 
+
+        ConveyorBeltParams = [['Slow', QtGui.QIcon(path + 'Unknown.png')],
                               ['Fast', QtGui.QIcon(path + 'Unknown.png')]]
-        
-        
-        self.ParameterList = [GenericParams, 
-                              SlopeParams, 
-                              ReverseSlopeParams, 
-                              PartialBlockParams, 
-                              CoinParams, 
+
+
+        self.ParameterList = [GenericParams,
+                              SlopeParams,
+                              ReverseSlopeParams,
+                              PartialBlockParams,
+                              CoinParams,
                               ExplodableBlockParams,
-                              ClimableGridParams, 
+                              ClimableGridParams,
                               SpikeParams,
-                              PipeParams, 
-                              RailParams, 
+                              PipeParams,
+                              RailParams,
                               ConveyorBeltParams]
-        
-        
+
+
         layout = QtWidgets.QGridLayout()
         layout.addWidget(self.coreType, 0, 1)
         layout.addWidget(self.propertyGroup, 0, 0, 3, 1)
@@ -498,42 +498,42 @@ class paletteWidget(QtWidgets.QWidget):
                 self.parameters.clear()
                 for option in self.ParameterList[item]:
                     self.parameters.addItem(option[1], option[0])
-                    
-            
-            
+
+
+
 #############################################################################################
 ######################### InfoBox Custom Widget to display info to ##########################
-           
-            
+
+
 class InfoBox(QtWidgets.QWidget):
     def __init__(self, window):
         super(InfoBox, self).__init__(window)
-    
+
         # InfoBox
         superLayout = QtWidgets.QGridLayout()
         infoLayout = QtWidgets.QFormLayout()
-        
+
         self.imageBox = QtWidgets.QGroupBox()
         imageLayout = QtWidgets.QHBoxLayout()
-        
+
         pix = QtGui.QPixmap(24, 24)
         pix.fill(Qt.transparent)
-        
+
         self.coreImage = QtWidgets.QLabel()
         self.coreImage.setPixmap(pix)
         self.terrainImage = QtWidgets.QLabel()
         self.terrainImage.setPixmap(pix)
         self.parameterImage = QtWidgets.QLabel()
         self.parameterImage.setPixmap(pix)
-                
+
 
         def updateAllTiles():
             for i in range(256):
                 window.tileDisplay.update(window.tileDisplay.model().index(i, 0))
         self.collisionOverlay = QtWidgets.QCheckBox('Overlay Collision')
         self.collisionOverlay.clicked.connect(updateAllTiles)
-        
-        
+
+
         self.coreInfo = QtWidgets.QLabel()
         self.propertyInfo = QtWidgets.QLabel('             \n\n\n\n\n')
         self.terrainInfo = QtWidgets.QLabel()
@@ -546,7 +546,7 @@ class InfoBox(QtWidgets.QWidget):
         self.propertyInfo.setFont(Font)
         self.terrainInfo.setFont(Font)
         self.paramInfo.setFont(Font)
-        
+
 
         self.LabelB = QtWidgets.QLabel('Properties:')
         self.LabelB.setFont(Font)
@@ -563,7 +563,7 @@ class InfoBox(QtWidgets.QWidget):
         terrLayout.setGeometry(QtCore.QRect(0,0,40,40))
         paramLayout.setGeometry(QtCore.QRect(0,0,40,40))
 
-        
+
         label = QtWidgets.QLabel('Core')
         label.setFont(Font)
         coreLayout.addWidget(label, 0, Qt.AlignCenter)
@@ -583,7 +583,7 @@ class InfoBox(QtWidgets.QWidget):
         coreLayout.addWidget(self.coreInfo, 0, Qt.AlignCenter)
         terrLayout.addWidget(self.terrainInfo, 0, Qt.AlignCenter)
         paramLayout.addWidget(self.paramInfo, 0, Qt.AlignCenter)
- 
+
         imageLayout.setContentsMargins(0,4,4,4)
         imageLayout.addLayout(coreLayout)
         imageLayout.addLayout(terrLayout)
@@ -591,15 +591,15 @@ class InfoBox(QtWidgets.QWidget):
 
         self.imageBox.setLayout(imageLayout)
 
-        
+
         superLayout.addWidget(self.imageBox, 0, 0)
         superLayout.addWidget(self.collisionOverlay, 1, 0)
         infoLayout.addRow(self.LabelB, self.propertyInfo)
         infoLayout.addRow(self.hexdata)
         superLayout.addLayout(infoLayout, 0, 1, 2, 1)
         self.setLayout(superLayout)
-            
-            
+
+
 
 
 #############################################################################################
@@ -607,7 +607,7 @@ class InfoBox(QtWidgets.QWidget):
 
 
 class objectList(QtWidgets.QListView):
-        
+
     def __init__(self, parent=None):
         super(objectList, self).__init__(parent)
 
@@ -621,21 +621,21 @@ class objectList(QtWidgets.QListView):
         self.setMinimumHeight(140)
         self.setMaximumHeight(140)
 
-        
+
 
 def SetupObjectModel(self, objects, tiles):
     global Tileset
     self.clear()
-    
+
     count = 0
     for object in objects:
         tex = QtGui.QPixmap(object.width * 24, object.height * 24)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
-        
+
         Xoffset = 0
         Yoffset = 0
-        
+
         for i in range(len(object.tiles)):
             for tile in object.tiles[i]:
                 if (Tileset.slot == 0) or ((tile[2] & 3) != 0):
@@ -643,11 +643,11 @@ def SetupObjectModel(self, objects, tiles):
                 Xoffset += 24
             Xoffset = 0
             Yoffset += 24
-                        
+
         painter.end()
 
         self.appendRow(QtGui.QStandardItem(QtGui.QIcon(tex), 'Object {0}'.format(count)))
-    
+
         count += 1
 
 
@@ -656,9 +656,9 @@ def SetupObjectModel(self, objects, tiles):
 
 
 class displayWidget(QtWidgets.QListView):
-    
+
     mouseMoved = QtCore.pyqtSignal(int, int)
-    
+
     def __init__(self, parent=None):
         super(displayWidget, self).__init__(parent)
 
@@ -683,18 +683,18 @@ class displayWidget(QtWidgets.QListView):
 
     def mouseMoveEvent(self, event):
         QtWidgets.QWidget.mouseMoveEvent(self, event)
-        
+
         self.mouseMoved.emit(event.x(), event.y())
-        
-                
-                
+
+
+
     class TileItemDelegate(QtWidgets.QAbstractItemDelegate):
         """Handles tiles and their rendering"""
-        
+
         def __init__(self):
             """Initialises the delegate"""
             QtWidgets.QAbstractItemDelegate.__init__(self)
-        
+
         def paint(self, painter, option, index):
             """Paints an object"""
 
@@ -709,13 +709,13 @@ class displayWidget(QtWidgets.QListView):
             # Collision Overlays
             info = window.infoDisplay
             curTile = Tileset.tiles[index.row()]
-            
+
             if info.collisionOverlay.isChecked():
                 path = os.path.dirname(os.path.abspath(sys.argv[0])) + '/Icons/'
-                
+
                 # Sets the colour based on terrain type
                 if curTile.byte2 & 16:      # Red
-                    colour = QtGui.QColor(255, 0, 0, 120)                    
+                    colour = QtGui.QColor(255, 0, 0, 120)
                 elif curTile.byte5 == 1:    # Ice
                     colour = QtGui.QColor(0, 0, 255, 120)
                 elif curTile.byte5 == 2:    # Snow
@@ -1083,7 +1083,7 @@ class displayWidget(QtWidgets.QListView):
                     if curTile.byte7 == 6:
                         painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Prop.png'))
                     if curTile.byte7 == 7:
-                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Peng.png'))                    
+                        painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/Peng.png'))
                     if curTile.byte7 == 8:
                         painter.drawPixmap(option.rect, QtGui.QPixmap(path + 'QBlock/IceF.png'))
 
@@ -1112,22 +1112,22 @@ class displayWidget(QtWidgets.QListView):
 
                 else: # No fill
                     pass
-                                
 
-            # Highlight stuff. 
+
+            # Highlight stuff.
             colour = QtGui.QColor(option.palette.highlight())
             colour.setAlpha(80)
 
             if option.state & QtWidgets.QStyle.State_Selected:
                 painter.fillRect(option.rect, colour)
-            
-        
+
+
         def sizeHint(self, option, index):
             """Returns the size for the object"""
             return QtCore.QSize(24,24)
-        
-        
-        
+
+
+
 #############################################################################################
 ############################ Tile widget for drag n'drop Objects ############################
 
@@ -1145,14 +1145,14 @@ class tileOverlord(QtWidgets.QWidget):
 
         self.addRow = QtWidgets.QPushButton('+')
         self.removeRow = QtWidgets.QPushButton('-')
-    
+
         self.addColumn = QtWidgets.QPushButton('+')
         self.removeColumn = QtWidgets.QPushButton('-')
 
         self.tilingMethod = QtWidgets.QComboBox()
         self.tilesetType = QtWidgets.QLabel('Pa0')
 
-        self.tilingMethod.addItems(['Repeat', 
+        self.tilingMethod.addItems(['Repeat',
                                     'Stretch Center',
                                     'Stretch X',
                                     'Stretch Y',
@@ -1178,42 +1178,42 @@ class tileOverlord(QtWidgets.QWidget):
 
 
         # Layout
-        layout = QtWidgets.QGridLayout()        
-        
+        layout = QtWidgets.QGridLayout()
+
         layout.addWidget(self.tilesetType, 0, 0, 1, 3)
         layout.addWidget(self.tilingMethod, 0, 3, 1, 3)
 
         layout.addWidget(self.addObject, 0, 6, 1, 1)
         layout.addWidget(self.removeObject, 0, 7, 1, 1)
-        
+
         layout.setRowMinimumHeight(1, 40)
-        
+
         layout.setRowStretch(1, 1)
         layout.setRowStretch(2, 5)
         layout.setRowStretch(5, 5)
         layout.addWidget(self.tiles, 2, 1, 4, 6)
-        
+
         layout.addWidget(self.addColumn, 3, 7, 1, 1)
         layout.addWidget(self.removeColumn, 4, 7, 1, 1)
         layout.addWidget(self.addRow, 6, 3, 1, 1)
         layout.addWidget(self.removeRow, 6, 4, 1, 1)
-        
+
         self.setLayout(layout)
-       
+
 
 
 
     def addObj(self):
         global Tileset
-        
+
         Tileset.addObject()
-        
+
         pix = QtGui.QPixmap(24, 24)
         pix.fill(Qt.transparent)
         painter = QtGui.QPainter(pix)
         painter.drawPixmap(0, 0, Tileset.tiles[0].image)
         painter.end()
-                    
+
         count = len(Tileset.objects)
         window.objmodel.appendRow(QtGui.QStandardItem(QtGui.QIcon(pix), 'Object {0}'.format(count-1)))
         index = window.objectList.currentIndex()
@@ -1222,7 +1222,7 @@ class tileOverlord(QtWidgets.QWidget):
 
         window.objectList.update()
         self.update()
-        
+
 
     def removeObj(self):
         global Tileset
@@ -1240,7 +1240,7 @@ class tileOverlord(QtWidgets.QWidget):
     def setObject(self, index):
         global Tileset
         object = Tileset.objects[index.row()]
-                
+
         width = len(object.tiles[0])-1
         height = len(object.tiles)-1
         Xuniform = True
@@ -1251,7 +1251,7 @@ class tileOverlord(QtWidgets.QWidget):
         for tile in object.tiles[0]:
             if tile[0] != object.tiles[0][0][0]:
                 Xuniform = False
-                
+
         for tile in object.tiles:
             if tile[0][0] != object.tiles[0][0][0]:
                 Yuniform = False
@@ -1273,7 +1273,7 @@ class tileOverlord(QtWidgets.QWidget):
                 self.tilingMethod.setCurrentIndex(10)
             elif object.upperslope[0] == 0x93:
                 self.tilingMethod.setCurrentIndex(11)
-            
+
         else:
             if Xuniform and Yuniform:
                 self.tilingMethod.setCurrentIndex(0)
@@ -1292,22 +1292,22 @@ class tileOverlord(QtWidgets.QWidget):
             elif Xuniform == False and Yuniform and object.tiles[0][width][0] == 0:
                 self.tilingMethod.setCurrentIndex(7)
 
-                
+
         self.tiles.setObject(object)
 
 #        print 'Object {0}, Width: {1} / Height: {2}, Slope {3}/{4}'.format(index.row(), object.width, object.height, object.upperslope, object.lowerslope)
 #        for row in object.tiles:
 #            print 'Row: {0}'.format(row)
 #        print ''
-    
+
     @QtCore.pyqtSlot(int)
     def setTiling(self, listindex):
         global Tileset
-        
+
         index = window.objectList.currentIndex()
         object = Tileset.objects[index.row()]
-        
-        
+
+
         if listindex == 0: # Repeat
             ctile = 0
             crow = 0
@@ -1318,14 +1318,14 @@ class tileOverlord(QtWidgets.QWidget):
                     ctile += 1
                 crow += 1
                 ctile = 0
-                
+
         if listindex == 1: # Stretch Center
 
             if object.width < 3 and object.height < 3:
                 reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 3 tiles\nwide and 3 tiles tall to apply stretch center.")
                 self.setObject(index)
                 return
-                
+
             ctile = 0
             crow = 0
 
@@ -1348,7 +1348,7 @@ class tileOverlord(QtWidgets.QWidget):
                     ctile += 1
                 crow += 1
                 ctile = 0
-                
+
             object.upperslope = [0, 0]
             object.lowerslope = [0, 0]
 
@@ -1358,7 +1358,7 @@ class tileOverlord(QtWidgets.QWidget):
                 reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 3 tiles\nwide to apply stretch X.")
                 self.setObject(index)
                 return
-                
+
             ctile = 0
             crow = 0
 
@@ -1373,17 +1373,17 @@ class tileOverlord(QtWidgets.QWidget):
                     ctile += 1
                 crow += 1
                 ctile = 0
-                 
+
             object.upperslope = [0, 0]
             object.lowerslope = [0, 0]
-               
+
         if listindex == 3: # Stretch Y
 
             if object.height < 3:
                 reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 3 tiles\ntall to apply stretch Y.")
                 self.setObject(index)
                 return
-                
+
             ctile = 0
             crow = 0
 
@@ -1398,17 +1398,17 @@ class tileOverlord(QtWidgets.QWidget):
                     ctile += 1
                 crow += 1
                 ctile = 0
-                
+
             object.upperslope = [0, 0]
             object.lowerslope = [0, 0]
-                
+
         if listindex == 4: # Repeat Bottom
 
             if object.height < 2:
                 reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 2 tiles\ntall to apply repeat bottom.")
                 self.setObject(index)
                 return
-                
+
             ctile = 0
             crow = 0
 
@@ -1421,7 +1421,7 @@ class tileOverlord(QtWidgets.QWidget):
                     ctile += 1
                 crow += 1
                 ctile = 0
-                
+
             object.upperslope = [0, 0]
             object.lowerslope = [0, 0]
 
@@ -1431,7 +1431,7 @@ class tileOverlord(QtWidgets.QWidget):
                 reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 2 tiles\ntall to apply repeat top.")
                 self.setObject(index)
                 return
-                
+
             ctile = 0
             crow = 0
 
@@ -1444,7 +1444,7 @@ class tileOverlord(QtWidgets.QWidget):
                     ctile += 1
                 crow += 1
                 ctile = 0
-                
+
             object.upperslope = [0, 0]
             object.lowerslope = [0, 0]
 
@@ -1454,7 +1454,7 @@ class tileOverlord(QtWidgets.QWidget):
                 reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 2 tiles\nwide to apply repeat left.")
                 self.setObject(index)
                 return
-                
+
             ctile = 0
             crow = 0
 
@@ -1467,7 +1467,7 @@ class tileOverlord(QtWidgets.QWidget):
                     ctile += 1
                 crow += 1
                 ctile = 0
-                
+
             object.upperslope = [0, 0]
             object.lowerslope = [0, 0]
 
@@ -1477,7 +1477,7 @@ class tileOverlord(QtWidgets.QWidget):
                 reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 2 tiles\nwide to apply repeat right.")
                 self.setObject(index)
                 return
-                
+
             ctile = 0
             crow = 0
 
@@ -1490,7 +1490,7 @@ class tileOverlord(QtWidgets.QWidget):
                     ctile += 1
                 crow += 1
                 ctile = 0
-                
+
             object.upperslope = [0, 0]
             object.lowerslope = [0, 0]
 
@@ -1508,9 +1508,9 @@ class tileOverlord(QtWidgets.QWidget):
             object.upperslope = [0x90, 1]
             object.lowerslope = [0x84, object.height - 1]
             self.tiles.slope = 1
-            
+
             self.tiles.update()
-            
+
         if listindex == 9: # Downward Slope
             ctile = 0
             crow = 0
@@ -1524,7 +1524,7 @@ class tileOverlord(QtWidgets.QWidget):
             object.upperslope = [0x91, 1]
             object.lowerslope = [0x84, object.height - 1]
             self.tiles.slope = 1
-            
+
             self.tiles.update()
 
         if listindex == 10: # Upward Reverse Slope
@@ -1540,7 +1540,7 @@ class tileOverlord(QtWidgets.QWidget):
             object.upperslope = [0x92, object.height - 1]
             object.lowerslope = [0x84, 1]
             self.tiles.slope = 0-(object.height-1)
-            
+
             self.tiles.update()
 
         if listindex == 11: # Downward Reverse Slope
@@ -1556,12 +1556,12 @@ class tileOverlord(QtWidgets.QWidget):
             object.upperslope = [0x93, object.height - 1]
             object.lowerslope = [0x84, 1]
             self.tiles.slope = 0-(object.height-1)
-            
+
             self.tiles.update()
-       
+
 
 class tileWidget(QtWidgets.QWidget):
-    
+
     def __init__(self):
         super(tileWidget, self).__init__()
 
@@ -1581,7 +1581,7 @@ class tileWidget(QtWidgets.QWidget):
     def clear(self):
         self.tiles = []
         self.size = [1, 1] # [width, height]
-        
+
         self.slope = 0
         self.highlightedRect = QtCore.QRect()
 
@@ -1590,10 +1590,10 @@ class tileWidget(QtWidgets.QWidget):
 
     def addColumn(self):
         global Tileset
-        
+
         if self.size[0] >= 24:
             return
-            
+
         self.size[0] += 1
         self.setMinimumSize(self.size[0]*24, self.size[1]*24)
 
@@ -1603,17 +1603,17 @@ class tileWidget(QtWidgets.QWidget):
         for y in range(self.size[1]):
             self.tiles.insert(((y+1) * self.size[0]) -1, [self.size[0]-1, y, pix])
 
- 
+
         curObj = Tileset.objects[self.object]
         curObj.width += 1
 
         for row in curObj.tiles:
             row.append((0, 0, 0))
-            
+
         self.update()
         self.updateList()
 
-   
+
     def removeColumn(self):
         global Tileset
 
@@ -1642,7 +1642,7 @@ class tileWidget(QtWidgets.QWidget):
 
         if self.size[1] >= 24:
             return
-        
+
         self.size[1] += 1
         self.setMinimumSize(self.size[0]*24, self.size[1]*24)
 
@@ -1662,7 +1662,7 @@ class tileWidget(QtWidgets.QWidget):
         self.update()
         self.updateList()
 
-    
+
     def removeRow(self):
         global Tileset
 
@@ -1671,7 +1671,7 @@ class tileWidget(QtWidgets.QWidget):
 
         for x in range(self.size[0]):
             self.tiles.pop()
-        
+
         self.size[1] -= 1
         self.setMinimumSize(self.size[0]*24, self.size[1]*24)
 
@@ -1686,11 +1686,11 @@ class tileWidget(QtWidgets.QWidget):
 
     def setObject(self, object):
         self.clear()
-            
+
         global Tileset
-            
+
         self.size = [object.width, object.height]
-        
+
         if not object.upperslope[1] == 0:
             if object.upperslope[0] & 2:
                 self.slope = 0 - object.lowerslope[1]
@@ -1710,19 +1710,19 @@ class tileWidget(QtWidgets.QWidget):
                 x += 1
             y += 1
             x = 0
-           
-           
-        self.object = window.objectList.currentIndex().row()    
+
+
+        self.object = window.objectList.currentIndex().row()
         self.update()
         self.updateList()
-               
+
 
     def contextMenuEvent(self, event):
-    
+
         TileMenu = QtWidgets.QMenu(self)
         self.contX = event.x()
         self.contY = event.y()
-        
+
         TileMenu.addAction('Set tile...', self.setTile)
         TileMenu.addAction('Add Item...', self.setItem)
 
@@ -1739,24 +1739,24 @@ class tileWidget(QtWidgets.QWidget):
             return
 
         currentSelected = window.tileDisplay.selectedIndexes()
-        
+
         ix = 0
         iy = 0
         for modelItem in currentSelected:
             # Update yourself!
             centerPoint = self.contentsRect().center()
-    
+
             tile = modelItem.row()
             upperLeftX = centerPoint.x() - self.size[0]*12
             upperLeftY = centerPoint.y() - self.size[1]*12
-    
+
             lowerRightX = centerPoint.x() + self.size[0]*12
             lowerRightY = centerPoint.y() + self.size[1]*12
-    
-    
+
+
             x = int((event.x() - upperLeftX)/24 + ix)
             y = int((event.y() - upperLeftY)/24 + iy)
-    
+
             if event.x() < upperLeftX or event.y() < upperLeftY or event.x() > lowerRightX or event.y() > lowerRightY:
                 return
 
@@ -1772,40 +1772,40 @@ class tileWidget(QtWidgets.QWidget):
                 iy += 1
             if iy > self.size[1]-1:
                 break
-            
-            
-        self.update()
-        
-        self.updateList()
-        
 
-    def updateList(self):        
+
+        self.update()
+
+        self.updateList()
+
+
+    def updateList(self):
         # Update the list >.>
         object = window.objmodel.itemFromIndex(window.objectList.currentIndex())
         if not object: return
-        
-        
+
+
         tex = QtGui.QPixmap(self.size[0] * 24, self.size[1] * 24)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
-        
+
         Xoffset = 0
         Yoffset = 0
-        
+
         for tile in self.tiles:
             painter.drawPixmap(tile[0]*24, tile[1]*24, tile[2])
-                        
+
         painter.end()
 
         object.setIcon(QtGui.QIcon(tex))
 
         window.objectList.update()
-    
-            
-        
+
+
+
     def setTile(self):
         global Tileset
-        
+
         dlg = self.setTileDialog()
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             # Do stuff
@@ -1816,39 +1816,39 @@ class tileWidget(QtWidgets.QWidget):
 
             tile = dlg.tile.value()
             tileset = dlg.tileset.currentIndex()
-    
+
             x = int((self.contX - upperLeftX) / 24)
             y = int((self.contY - upperLeftY) / 24)
 
             if tileset != Tileset.slot:
                 tex = QtGui.QPixmap(self.size[0] * 24, self.size[1] * 24)
                 tex.fill(Qt.transparent)
-        
+
                 self.tiles[(y * self.size[0]) + x][2] = tex
 
             Tileset.objects[self.object].tiles[y][x] = (Tileset.objects[self.object].tiles[y][x][0], tile, tileset)
-            
+
             self.update()
             self.updateList()
 
 
     class setTileDialog(QtWidgets.QDialog):
-    
+
         def __init__(self):
             QtWidgets.QDialog.__init__(self)
-        
+
             self.setWindowTitle('Set tiles')
-        
+
             self.tileset = QtWidgets.QComboBox()
             self.tileset.addItems(['Pa0', 'Pa1', 'Pa2', 'Pa3'])
-        
-            self.tile = QtWidgets.QSpinBox()                
-            self.tile.setRange(0, 255)             
-            
+
+            self.tile = QtWidgets.QSpinBox()
+            self.tile.setRange(0, 255)
+
             self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
             self.buttons.accepted.connect(self.accept)
             self.buttons.rejected.connect(self.reject)
-            
+
             self.layout = QtWidgets.QGridLayout()
             self.layout.addWidget(QtWidgets.QLabel('Tileset:'), 0,0,1,1, Qt.AlignLeft)
             self.layout.addWidget(QtWidgets.QLabel('Tile:'), 0,3,1,1, Qt.AlignLeft)
@@ -1860,7 +1860,7 @@ class tileWidget(QtWidgets.QWidget):
 
     def setItem(self):
         global Tileset
-        
+
         dlg = self.setItemDialog()
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             # Do stuff
@@ -1870,32 +1870,32 @@ class tileWidget(QtWidgets.QWidget):
             upperLeftY = centerPoint.y() - self.size[1]*12
 
             item = dlg.item.currentIndex()
-    
+
             x = int((self.contX - upperLeftX) / 24)
             y = int((self.contY - upperLeftY) / 24)
 
             obj = Tileset.objects[self.object].tiles[y][x]
-            
+
             obj = (obj[0], obj[1], obj[2] | (item << 2))
-            
+
             self.update()
             self.updateList()
 
 
     class setItemDialog(QtWidgets.QDialog):
-    
+
         def __init__(self):
             QtWidgets.QDialog.__init__(self)
-        
+
             self.setWindowTitle('Set item')
-        
+
             self.item = QtWidgets.QComboBox()
             self.item.addItems(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'])
-                    
+
             self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
             self.buttons.accepted.connect(self.accept)
             self.buttons.rejected.connect(self.reject)
-            
+
             self.layout = QtWidgets.QHBoxLayout()
             self.vlayout = QtWidgets.QVBoxLayout()
             self.layout.addWidget(QtWidgets.QLabel('Item:'))
@@ -1903,13 +1903,13 @@ class tileWidget(QtWidgets.QWidget):
             self.vlayout.addLayout(self.layout)
             self.vlayout.addWidget(self.buttons)
             self.setLayout(self.vlayout)
-            
-               
+
+
 
     def paintEvent(self, event):
         painter = QtGui.QPainter()
         painter.begin(self)
-        
+
         centerPoint = self.contentsRect().center()
         upperLeftX = centerPoint.x() - self.size[0]*12
         lowerRightX = centerPoint.x() + self.size[0]*12
@@ -1930,7 +1930,7 @@ class tileWidget(QtWidgets.QWidget):
             pen.setColor(Qt.blue)
             painter.setPen(QtGui.QPen(pen))
             painter.drawLine(upperLeftX, upperLeftY + (abs(self.slope) * 24), lowerRightX, upperLeftY + (abs(self.slope) * 24))
-            
+
             if self.slope > 0:
                 main = 'Main'
                 sub = 'Sub'
@@ -1982,7 +1982,7 @@ class PiecesModel(QtCore.QAbstractListModel):
         self.beginInsertRows(QtCore.QModelIndex(), row, row)
         self.pixmaps.insert(row, pixmap)
         self.endInsertRows()
-        
+
     def flags(self,index):
         if index.isValid():
             return (Qt.ItemIsEnabled | Qt.ItemIsSelectable |
@@ -2120,12 +2120,12 @@ def RGB4A3Encode(tex):
         for xtile in range(0, 1024, 4):
             for ypixel in range(ytile, ytile + 4):
                 for xpixel in range(xtile, xtile + 4):
-                    
+
                     if xpixel >= 1024 or ypixel >= 256:
                         continue
-                    
+
                     pixel = tex.pixel(xpixel, ypixel)
-                    
+
                     a = pixel >> 24
                     r = (pixel >> 16) & 0xFF
                     g = (pixel >> 8) & 0xFF
@@ -2153,7 +2153,7 @@ def RGB4A3Encode(tex):
 
                             # 0aaarrrrggggbbbb
                             rgba = blue | (green << 4) | (red << 8) | (alpha << 12)
-                    
+
                         else: # RGB555
                             red = ((r + 4) << 2) // 33
                             green = ((g + 4) << 2) // 33
@@ -2189,7 +2189,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tileImage = QtGui.QPixmap()
         self.alpha = True
-        
+
         global Tileset
         Tileset = TilesetClass()
 
@@ -2221,44 +2221,44 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def newTileset(self):
         '''Creates a new, blank tileset'''
-        
+
         global Tileset
         Tileset.clear()
         Tileset = TilesetClass()
-        
+
         EmptyPix = QtGui.QPixmap(24, 24)
         EmptyPix.fill(Qt.black)
-        
+
         for i in range(256):
             Tileset.addTile(EmptyPix, EmptyPix)
 
         self.setuptile()
         self.setWindowTitle('New Tileset')
-        
-        
+
+
     def openTileset(self):
         '''Opens a Nintendo tileset arc and parses the heck out of it.'''
-        
+
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Open NSMBW Tileset", '',
                     "Image Files (*.arc)")[0]
-                    
+
         if not path: return
         self.setWindowTitle(os.path.basename(path))
         Tileset.clear()
 
         name = path[str(path).rfind('/')+1:-4]
-    
+
         with open(path,'rb') as file:
             data = file.read()
-        
+
         arc = archive.U8()
         arc._load(data)
-        
+
         Image = None
         behaviourdata = None
         objstrings = None
         metadata = None
-        
+
         for key, value in arc.files:
             if value == None:
                 pass
@@ -2276,7 +2276,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if (Image == None) or (behaviourdata == None) or (objstrings == None) or (metadata == None):
             QtWidgets.QMessageBox.warning(None, 'Error',  'Error - the necessary files were not found.\n\nNot a valid tileset, sadly.')
             return
-        
+
         # Stolen from Reggie! Loads the Image Data.
         if HaveNSMBLib:
             tiledata = nsmblib.decompress11LZS(Image)
@@ -2292,17 +2292,17 @@ class MainWindow(QtWidgets.QMainWindow):
             decomp = lz.Decompress11LZS(Image)
             dest = RGB4A3Decode(decomp)
             noalphadest = RGB4A3Decode(decomp, False)
-        
+
         self.tileImage = QtGui.QPixmap.fromImage(dest)
         noalpha = QtGui.QPixmap.fromImage(noalphadest)
-        
+
         # Loads Tile Behaviours
-                    
+
         behaviours = []
         for entry in range(256):
             behaviours.append(struct.unpack_from('>8B', behaviourdata, entry*8))
-        
-        
+
+
         # Makes us some nice Tile Classes!
         Xoffset = 4
         Yoffset = 4
@@ -2311,25 +2311,25 @@ class MainWindow(QtWidgets.QMainWindow):
             Xoffset += 32
             if Xoffset >= 1024:
                 Xoffset = 4
-                Yoffset += 32                    
-        
-        
+                Yoffset += 32
+
+
         # Load Objects
-        
+
         meta = []
         for i in range(len(metadata) // 4):
-            meta.append(struct.unpack_from('>H2B', metadata, i * 4))                                    
-            
+            meta.append(struct.unpack_from('>H2B', metadata, i * 4))
+
         tilelist = [[]]
         upperslope = [0, 0]
         lowerslope = [0, 0]
         byte = 0
-        
-        for entry in meta:  
+
+        for entry in meta:
             offset = entry[0]
             byte = struct.unpack_from('>B', objstrings, offset)[0]
             row = 0
-            
+
             while byte != 0xFF:
 
                 if byte == 0xFE:
@@ -2337,7 +2337,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     if (upperslope[0] != 0) and (lowerslope[0] == 0):
                         upperslope[1] = upperslope[1] + 1
-                        
+
                     if lowerslope[0] != 0:
                         lowerslope[1] = lowerslope[1] + 1
 
@@ -2350,10 +2350,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         upperslope[0] = byte
                     else:
                         lowerslope[0] = byte
-                        
+
                     offset += 1
                     byte = struct.unpack_from('>B', objstrings, offset)[0]
-                    
+
                 else:
                     tilelist[len(tilelist)-1].append(struct.unpack_from('>3B', objstrings, offset))
 
@@ -2390,7 +2390,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Open Image", '',
                     "Image Files (*.png)")[0]
-                    
+
         if not path: return
         newImage = QtGui.QPixmap()
         self.tileImage = newImage
@@ -2411,7 +2411,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     y += 1
                     x = 0
 
-        else: 
+        else:
             QtWidgets.QMessageBox.warning(self, "Open Image",
                     "The image was not the proper dimensions."
                     "Please resize the image to 384x384 pixels.",
@@ -2423,50 +2423,50 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def saveImage(self):
-            
+
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
         if fn == '': return
-        
+
         tex = QtGui.QPixmap(384, 384)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
-        
+
         Xoffset = 0
         Yoffset = 0
-        
+
         for tile in Tileset.tiles:
             painter.drawPixmap(Xoffset, Yoffset, tile.image)
             Xoffset += 24
             if Xoffset >= 384:
                 Xoffset = 0
                 Yoffset += 24
-                        
+
         painter.end()
 
         tex.save(fn)
-        
-        
+
+
     def saveTileset(self):
         if self.name == '':
             self.saveTilesetAs()
             return
-            
-        
+
+
         outdata = self.saving(os.path.basename(self.name)[:-4])
-        
+
         fn = self.name
         with open(fn, 'wb') as f:
             f.write(outdata)
-                
-        
+
+
     def saveTilesetAs(self):
-        
+
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.arc (*.arc)')[0]
         if fn == '': return
 
         self.name = fn
         self.setWindowTitle(os.path.basename(str(fn)))
-        
+
         outdata = self.saving(os.path.basename(str(fn))[:-4])
         with open(fn, 'wb') as f:
             f.write(outdata)
@@ -2481,8 +2481,8 @@ class MainWindow(QtWidgets.QMainWindow):
         objectBuffers = self.PackObjects()
         objectBuffer = objectBuffers[0]
         objectMetaBuffer = objectBuffers[1]
-        
-                
+
+
         # Make an arc and pack up the files!
         arc = archive.U8()
         arc['BG_tex'] = None
@@ -2494,7 +2494,7 @@ class MainWindow(QtWidgets.QMainWindow):
         arc['BG_unt'] = None
         arc['BG_unt/{0}.bin'.format(name)] = objectBuffer
         arc['BG_unt/{0}_hd.bin'.format(name)] = objectMetaBuffer
-        
+
         return arc._dump()
 
 
@@ -2503,7 +2503,7 @@ class MainWindow(QtWidgets.QMainWindow):
         tex = QtGui.QImage(1024, 256, QtGui.QImage.Format_ARGB32_Premultiplied)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
-        
+
         Xoffset = 0
         Yoffset = 0
 
@@ -2511,28 +2511,28 @@ class MainWindow(QtWidgets.QMainWindow):
             minitex = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32_Premultiplied)
             minitex.fill(Qt.transparent)
             minipainter = QtGui.QPainter(minitex)
-            
+
             minipainter.drawPixmap(4, 4, tile.image)
             minipainter.end()
-            
+
             # Read colours and DESTROY THEM (or copy them to the edges, w/e)
             for i in range(4,28):
-                
+
                 # Top Clamp
                 colour = minitex.pixel(i, 4)
                 for p in range(0,5):
                     minitex.setPixel(i, p, colour)
-                
+
                 # Left Clamp
                 colour = minitex.pixel(4, i)
                 for p in range(0,5):
                     minitex.setPixel(p, i, colour)
-                
+
                 # Right Clamp
                 colour = minitex.pixel(i, 27)
                 for p in range(27,32):
                     minitex.setPixel(i, p, colour)
-                
+
                 # Bottom Clamp
                 colour = minitex.pixel(27, i)
                 for p in range(27,32):
@@ -2562,15 +2562,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 for y in range(27,32):
                     minitex.setPixel(x, y, colour)
 
-                    
+
             painter.drawImage(Xoffset, Yoffset, minitex)
-            
+
             Xoffset += 32
-            
+
             if Xoffset >= 1024:
                 Xoffset = 0
                 Yoffset += 32
-                                    
+
         painter.end()
 
         dest = RGB4A3Encode(tex)
@@ -2579,7 +2579,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if useNSMBLib:
             # NSMBLib is available, so the user can choose whether to use it or not
-        
+
             items = ("Slow Compression, Good Quality", "Fast Compression, but the Image gets damaged")
 
             item, ok = QtWidgets.QInputDialog.getItem(self, "Choose compression method",
@@ -2601,7 +2601,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             lz = lz77.LZS11()
             TexBuffer = lz.Compress11LZS(dest)
-        
+
         return TexBuffer
 
 
@@ -2612,31 +2612,31 @@ class MainWindow(QtWidgets.QMainWindow):
         for tile in Tileset.tiles:
             tilespack.pack_into(Tilebuffer, offset, tile.byte0, tile.byte1, tile.byte2, tile.byte3, tile.byte4, tile.byte5, tile.byte6, tile.byte7)
             offset += 8
-                    
+
         return Tilebuffer.raw
 
 
     def PackObjects(self):
         objectStrings = []
-        
+
         o = 0
         for object in Tileset.objects:
-                 
-                
+
+
             # Slopes
             if object.upperslope[0] != 0:
-                
+
                 # Reverse Slopes
                 if object.upperslope[0] & 0x2:
                     a = struct.pack('>B', object.upperslope[0])
-                    
+
                     if object.height == 1:
                         iterationsA = 0
                         iterationsB = 1
                     else:
                         iterationsA = object.upperslope[1]
                         iterationsB = object.lowerslope[1] + object.upperslope[1]
-                        
+
                     for row in range(iterationsA, iterationsB):
                         for tile in object.tiles[row]:
                             a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
@@ -2644,64 +2644,64 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     if object.height > 1:
                         a = a + struct.pack('>B', object.lowerslope[0])
-                    
+
                         for row in range(0, object.upperslope[1]):
                             for tile in object.tiles[row]:
                                 a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
                             a = a + b'\xfe'
-                        
+
                     a = a + b'\xff'
-                    
+
                     objectStrings.append(a)
-                    
-                    
-                # Regular Slopes   
+
+
+                # Regular Slopes
                 else:
                     a = struct.pack('>B', object.upperslope[0])
-                    
+
                     for row in range(0, object.upperslope[1]):
                         for tile in object.tiles[row]:
                             a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
                         a = a + b'\xfe'
-                    
+
                     if object.height > 1:
                         a = a + struct.pack('>B', object.lowerslope[0])
-                    
+
                         for row in range(object.upperslope[1], object.height):
                             for tile in object.tiles[row]:
                                 a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
                             a = a + b'\xfe'
-                        
+
                     a = a + b'\xff'
-                    
+
                     objectStrings.append(a)
-                    
-                    
-            # Not slopes!    
+
+
+            # Not slopes!
             else:
                 a = b''
-                
+
                 for tilerow in object.tiles:
                     for tile in tilerow:
                         a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
-                    
+
                     a = a + b'\xfe'
-                    
+
                 a = a + b'\xff'
-                
+
                 objectStrings.append(a)
-            
+
             o += 1
-            
+
         Objbuffer = b''
         Metabuffer = b''
         i = 0
         for a in objectStrings:
             Metabuffer = Metabuffer + struct.pack('>H2B', len(Objbuffer), Tileset.objects[i].width, Tileset.objects[i].height)
             Objbuffer = Objbuffer + a
-            
+
             i += 1
-        
+
         return (Objbuffer, Metabuffer)
 
 
@@ -2732,13 +2732,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def setSlot(self):
         global Tileset
-        
+
         items = ("Pa0", "Pa1", "Pa2", "Pa3")
 
         item, ok = QtWidgets.QInputDialog.getItem(self, "Set Tileset Slot",
                 "Warning: \n    Setting the tileset slot will override any \n    tiles set to draw from other tilesets.", items, 0, False)
         if ok and item:
-            Tileset.slot = int(item[2])      
+            Tileset.slot = int(item[2])
             self.tileWidget.tilesetType.setText(item)
 
 
@@ -2768,7 +2768,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.alpha = True
 
         self.setuptile()
-        
+
 
     def setupWidgets(self):
         frame = QtWidgets.QFrame()
@@ -2776,10 +2776,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Displays the tiles
         self.tileDisplay = displayWidget()
-        
+
         # Info Box for tile information
         self.infoDisplay = InfoBox(self)
-        
+
         # Sets up the model for the tile pieces
         self.model = PiecesModel(self)
         self.tileDisplay.setModel(self.model)
@@ -2810,7 +2810,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tileDisplay.clicked.connect(self.paintFormat)
         self.tileDisplay.mouseMoved.connect(self.updateInfo)
         self.objectList.clicked.connect(self.tileWidget.setObject)
-        
+
         # Layout
         frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 1)
         frameLayout.addWidget(self.tileDisplay, 1, 0)
@@ -2819,16 +2819,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def updateInfo(self, x, y):
-        
+
         index = [self.tileDisplay.indexAt(QtCore.QPoint(x, y))]
         curTile = Tileset.tiles[index[0].row()]
         info = self.infoDisplay
         palette = self.paletteWidget
-        
+
         propertyList = []
         propertyText = ''
         coreType = 0
-        
+
         if curTile.byte3 & 32:
             coreType = 1
         elif curTile.byte3 & 64:
@@ -2849,8 +2849,8 @@ class MainWindow(QtWidgets.QMainWindow):
             coretype = 9
         elif curTile.byte5 == 4 or 5:
             coretype = 10
-            
-        
+
+
         if curTile.byte3 & 1:
             propertyList.append('Solid')
         if curTile.byte3 & 16:
@@ -2864,7 +2864,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if curTile.byte1 & 8:
             propertyList.append('Ledge')
 
-            
+
         if len(propertyList) == 0:
             propertyText = 'None'
         elif len(propertyList) == 1:
@@ -2899,13 +2899,13 @@ class MainWindow(QtWidgets.QMainWindow):
         info.hexdata.setText('Hex Data: {0} {1} {2} {3}\n                {4} {5} {6} {7}'.format(
                                 hex(curTile.byte0), hex(curTile.byte1), hex(curTile.byte2), hex(curTile.byte3),
                                 hex(curTile.byte4), hex(curTile.byte5), hex(curTile.byte6), hex(curTile.byte7)))
-        
+
 
 
     def paintFormat(self, index):
         if self.tabWidget.currentIndex() == 1:
             return
-    
+
         curTile = Tileset.tiles[index.row()]
         palette = self.paletteWidget
 
@@ -2913,30 +2913,30 @@ class MainWindow(QtWidgets.QMainWindow):
             solid = 1
         else:
             solid = 0
-        
+
         if palette.coreWidgets[1].isChecked() == 1 or palette.coreWidgets[2].isChecked() == 1:
             solid = 0
 
 
-        curTile.byte1 = ((palette.coreWidgets[8].isChecked()) + 
+        curTile.byte1 = ((palette.coreWidgets[8].isChecked()) +
                         (palette.propertyWidgets[2].isChecked() << 1) +
                         (palette.propertyWidgets[3].isChecked() << 3))
-        curTile.byte2 = ((palette.coreWidgets[6].isChecked() << 2) + 
-                        (palette.coreWidgets[3].isChecked() << 3) + 
-                        (palette.coreWidgets[7].isChecked() << 4) + 
-                        (palette.PassDown.isChecked() << 5) + 
-                        (palette.PassThrough.isChecked() << 7)) 
-        curTile.byte3 = ((solid) + 
-                        (palette.coreWidgets[4].isChecked() << 1) + 
-                        (palette.coreWidgets[5].isChecked() << 3) + 
-                        (palette.propertyWidgets[1].isChecked() << 4) + 
-                        (palette.coreWidgets[1].isChecked() << 5) + 
+        curTile.byte2 = ((palette.coreWidgets[6].isChecked() << 2) +
+                        (palette.coreWidgets[3].isChecked() << 3) +
+                        (palette.coreWidgets[7].isChecked() << 4) +
+                        (palette.PassDown.isChecked() << 5) +
+                        (palette.PassThrough.isChecked() << 7))
+        curTile.byte3 = ((solid) +
+                        (palette.coreWidgets[4].isChecked() << 1) +
+                        (palette.coreWidgets[5].isChecked() << 3) +
+                        (palette.propertyWidgets[1].isChecked() << 4) +
+                        (palette.coreWidgets[1].isChecked() << 5) +
                         (palette.coreWidgets[2].isChecked() << 6))
         curTile.byte4 = 0
         if palette.coreWidgets[2].isChecked():
             curTile.byte5 = 4
         curTile.byte5 = palette.terrainType.currentIndex()
-        
+
         if palette.coreWidgets[0].isChecked():
             params = palette.parameters.currentIndex()
             if params == 0:
