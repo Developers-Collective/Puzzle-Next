@@ -2188,7 +2188,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
 
-        self.tileImage = QtGui.QPixmap()
         self.alpha = True
 
         global Tileset
@@ -2296,7 +2295,7 @@ class MainWindow(QtWidgets.QMainWindow):
             dest = RGB4A3Decode(decomp)
             noalphadest = RGB4A3Decode(decomp, False)
 
-        self.tileImage = QtGui.QPixmap.fromImage(dest)
+        tileImage = QtGui.QPixmap.fromImage(dest)
         noalpha = QtGui.QPixmap.fromImage(noalphadest)
 
         # Loads Tile Behaviours
@@ -2310,7 +2309,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Xoffset = 4
         Yoffset = 4
         for i in range(256):
-            Tileset.addTile(self.tileImage.copy(Xoffset,Yoffset,24,24), noalpha.copy(Xoffset,Yoffset,24,24), behaviours[i])
+            Tileset.addTile(tileImage.copy(Xoffset,Yoffset,24,24), noalpha.copy(Xoffset,Yoffset,24,24), behaviours[i])
             Xoffset += 32
             if Xoffset >= 1024:
                 Xoffset = 4
@@ -2395,32 +2394,38 @@ class MainWindow(QtWidgets.QMainWindow):
                     "Image Files (*.png)")[0]
 
         if not path: return
-        newImage = QtGui.QPixmap()
-        self.tileImage = newImage
 
-        if not newImage.load(path):
+        tileImage = QtGui.QPixmap()
+        if not tileImage.load(path):
             QtWidgets.QMessageBox.warning(self, "Open Image",
                     "The image file could not be loaded.",
                     QtWidgets.QMessageBox.Cancel)
             return
 
-        if ((newImage.width() == 384) & (newImage.height() == 384)):
-            x = 0
-            y = 0
-            for i in range(256):
-                Tileset.tiles[i].image = self.tileImage.copy(x*24,y*24,24,24)
-                x += 1
-                if (x * 24) >= 384:
-                    y += 1
-                    x = 0
 
-        else:
+        if tileImage.width() != 384 or tileImage.height() != 384:
             QtWidgets.QMessageBox.warning(self, "Open Image",
                     "The image was not the proper dimensions."
                     "Please resize the image to 384x384 pixels.",
                     QtWidgets.QMessageBox.Cancel)
             return
 
+        noalphaImage = QtGui.QPixmap(384, 384)
+        noalphaImage.fill(Qt.black)
+        p = QtGui.QPainter(noalphaImage)
+        p.drawPixmap(0, 0, tileImage)
+        p.end()
+        del p
+
+        x = 0
+        y = 0
+        for i in range(256):
+            Tileset.tiles[i].image = tileImage.copy(x*24,y*24,24,24)
+            Tileset.tiles[i].noalpha = noalphaImage.copy(x*24,y*24,24,24)
+            x += 1
+            if (x * 24) >= 384:
+                y += 1
+                x = 0
 
         self.setuptile()
 
