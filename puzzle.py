@@ -7,7 +7,10 @@ import struct
 import sys
 
 from ctypes import create_string_buffer
-from PyQt5 import QtCore, QtGui, QtWidgets
+try:
+    from PySide2 import QtCore, QtGui, QtWidgets
+except ImportError:
+    from PyQt5 import QtCore, QtGui, QtWidgets
 Qt = QtCore.Qt
 
 
@@ -16,6 +19,14 @@ try:
     HaveNSMBLib = True
 except ImportError:
     HaveNSMBLib = False
+
+
+if hasattr(QtCore, 'pyqtSlot'): # PyQt
+    QtCoreSlot = QtCore.pyqtSlot
+    QtCoreSignal = QtCore.pyqtSignal
+else: # PySide2
+    QtCoreSlot = QtCore.Slot
+    QtCoreSignal = QtCore.Signal
 
 
 ########################################################
@@ -657,7 +668,7 @@ def SetupObjectModel(self, objects, tiles):
 
 class displayWidget(QtWidgets.QListView):
 
-    mouseMoved = QtCore.pyqtSignal(int, int)
+    mouseMoved = QtCoreSignal(int, int)
 
     def __init__(self, parent=None):
         super(displayWidget, self).__init__(parent)
@@ -1115,7 +1126,7 @@ class displayWidget(QtWidgets.QListView):
 
 
             # Highlight stuff.
-            colour = QtGui.QColor(option.palette.highlight())
+            colour = option.palette.highlight().color()
             colour.setAlpha(80)
 
             if option.state & QtWidgets.QStyle.State_Selected:
@@ -1300,7 +1311,7 @@ class tileOverlord(QtWidgets.QWidget):
 #            print 'Row: {0}'.format(row)
 #        print ''
 
-    @QtCore.pyqtSlot(int)
+    @QtCoreSlot(int)
     def setTiling(self, listindex):
         global Tileset
 
