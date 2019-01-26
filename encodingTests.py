@@ -12,6 +12,8 @@ def decode4(val):
     return val * 17 # equivalent to "val << 4 | val"
 def decode5(val):
     return val << 3 | val >> 2
+def decode6(val):
+    return val << 2 | val >> 4
 
 def encode3(val):
     # 36.5 (73/2) in binary is 00100100.1
@@ -22,11 +24,15 @@ def encode4(val):
 def encode5(val):
     # 8.25 (33/4) in binary is 00001000.01
     return ((val + 4) << 2) // 33
+def encode6(val):
+    # 4.0625 (65/16) in binary is 00000100.0001
+    return ((val + 2) << 4) // 65
 
 funcs = [
     (3, encode3, decode3),
     (4, encode4, decode4),
     (5, encode5, decode5),
+    (6, encode6, decode6),
 ]
 
 for bits, encodeFunc, decodeFunc in funcs:
