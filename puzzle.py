@@ -2110,7 +2110,8 @@ def RGB4A3Decode(tex, useAlpha=True):
 
     # Convert the list of ARGB color values into a bytes object, and
     # then convert that into a QImage
-    return QtGui.QImage(struct.pack('<262144I', *dest), 1024, 256, QtGui.QImage.Format_ARGB32_Premultiplied)
+    img = QtGui.QImage(struct.pack('<262144I', *dest), 1024, 256, QtGui.QImage.Format_ARGB32_Premultiplied)
+    return img.convertToFormat(QtGui.QImage.Format_ARGB32)
 
 
 def RGB4A3Encode(tex):
@@ -2282,9 +2283,11 @@ class MainWindow(QtWidgets.QMainWindow):
             tiledata = nsmblib.decompress11LZS(Image)
             argbdata = nsmblib.decodeTileset(tiledata)
             dest = QtGui.QImage(argbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32_Premultiplied)
+            dest = dest.convertToFormat(QtGui.QImage.Format_ARGB32)
             if hasattr(nsmblib, 'decodeTilesetNoAlpha'):
                 rgbdata = nsmblib.decodeTilesetNoAlpha(tiledata)
                 noalphadest = QtGui.QImage(rgbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32_Premultiplied)
+                noalphadest = dest.convertToFormat(QtGui.QImage.Format_ARGB32)
             else:
                 noalphadest = RGB4A3Decode(tiledata, False)
         else:
