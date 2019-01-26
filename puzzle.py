@@ -526,9 +526,12 @@ class InfoBox(QtWidgets.QWidget):
         self.parameterImage = QtWidgets.QLabel()
         self.parameterImage.setPixmap(pix)
                 
-        
+
+        def updateAllTiles():
+            for i in range(256):
+                window.tileDisplay.update(window.tileDisplay.model().index(i, 0))
         self.collisionOverlay = QtWidgets.QCheckBox('Overlay Collision')
-        self.collisionOverlay.clicked.connect(window.tileDisplay.update)
+        self.collisionOverlay.clicked.connect(updateAllTiles)
         
         
         self.coreInfo = QtWidgets.QLabel()
