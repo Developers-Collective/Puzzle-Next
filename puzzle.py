@@ -88,6 +88,7 @@ class TilesetClass():
 
         self.tiles = []
         self.objects = []
+        self.unknownFiles = {}
 
         self.slot = 0
 
@@ -120,6 +121,7 @@ class TilesetClass():
 
         self.tiles = []
         self.objects = []
+        self.unknownFiles = {}
 
 
     def clearObjects(self):
@@ -2272,16 +2274,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         for key, value in arc.files:
             if value == None:
-                pass
-            if key.startswith('BG_tex/') and key.endswith('_tex.bin.LZ'):
+                continue
+            elif key.startswith('BG_tex/') and key.endswith('_tex.bin.LZ'):
                 Image = arc[key]
-            if key.startswith('BG_chk/d_bgchk_') and key.endswith('.bin'):
+            elif key.startswith('BG_chk/d_bgchk_') and key.endswith('.bin'):
                 behaviourdata = arc[key]
-            if key.startswith('BG_unt/'):
-                if key.endswith('_hd.bin'):
-                    metadata = arc[key]
-                elif key.endswith('.bin'):
-                    objstrings = arc[key]
+            elif key.startswith('BG_unt/') and key.endswith('_hd.bin'):
+                metadata = arc[key]
+            elif key.startswith('BG_unt/') and key.endswith('.bin'):
+                objstrings = arc[key]
+            else:
+                Tileset.unknownFiles[key] = arc[key]
 
 
         if (Image == None) or (behaviourdata == None) or (objstrings == None) or (metadata == None):
@@ -2513,6 +2516,9 @@ class MainWindow(QtWidgets.QMainWindow):
         arc['BG_unt'] = None
         arc['BG_unt/{0}.bin'.format(name)] = objectBuffer
         arc['BG_unt/{0}_hd.bin'.format(name)] = objectMetaBuffer
+
+        for name, data in Tileset.unknownFiles.items():
+            arc[name] = data
 
         return arc._dump()
 
