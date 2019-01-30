@@ -124,26 +124,6 @@ class TilesetClass():
         self.unknownFiles = {}
 
 
-    def clearObjects(self):
-        '''Clears the object data'''
-
-        self.objects = []
-
-
-    def clearCollisions(self):
-        '''Clears the collisions data'''
-
-        for tile in self.tiles:
-            tile.byte0 = 0
-            tile.byte1 = 0
-            tile.byte2 = 0
-            tile.byte3 = 0
-            tile.byte4 = 0
-            tile.byte5 = 0
-            tile.byte6 = 0
-            tile.byte7 = 0
-
-
 #############################################################################################
 ######################### Palette for painting behaviours to tiles ##########################
 
@@ -2750,8 +2730,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         taskMenu.addAction("Set Tileset Slot...", self.setSlot, QtGui.QKeySequence('Ctrl+T'))
         taskMenu.addAction("Toggle Alpha", self.toggleAlpha, QtGui.QKeySequence('Ctrl+Shift+A'))
-        taskMenu.addAction("Clear Collision Data", Tileset.clearCollisions, QtGui.QKeySequence('Ctrl+Shift+Backspace'))
-        taskMenu.addAction("Clear Object Data", Tileset.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
+        taskMenu.addAction("Clear Collision Data", self.clearCollisions, QtGui.QKeySequence('Ctrl+Shift+Backspace'))
+        taskMenu.addAction("Clear Object Data", self.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
 
 
 
@@ -2793,6 +2773,33 @@ class MainWindow(QtWidgets.QMainWindow):
             self.alpha = True
 
         self.setuptile()
+
+    def clearObjects(self):
+        '''Clears the object data'''
+
+        Tileset.objects = []
+
+        SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
+
+        self.objectList.update()
+        self.tileWidget.update()
+
+
+    def clearCollisions(self):
+        '''Clears the collisions data'''
+
+        for tile in Tileset.tiles:
+            tile.byte0 = 0
+            tile.byte1 = 0
+            tile.byte2 = 0
+            tile.byte3 = 0
+            tile.byte4 = 0
+            tile.byte5 = 0
+            tile.byte6 = 0
+            tile.byte7 = 0
+
+        self.updateInfo(0, 0)
+        self.tileDisplay.update()
 
 
     def setupWidgets(self):
