@@ -2749,7 +2749,7 @@ class MainWindow(QtWidgets.QMainWindow):
         items = ("Pa0", "Pa1", "Pa2", "Pa3")
 
         item, ok = QtWidgets.QInputDialog.getItem(self, "Set Tileset Slot",
-                "Warning: \n    Setting the tileset slot will override any \n    tiles set to draw from other tilesets.", items, 0, False)
+                "Warning: \n    Setting the tileset slot will override any \n    tiles set to draw from other tilesets.\n\nCurrent slot is Pa%d" % Tileset.slot, items, 0, False)
         if ok and item:
             Tileset.slot = int(item[2])
             self.tileWidget.tilesetType.setText(item)
