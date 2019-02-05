@@ -158,7 +158,7 @@ class paletteWidget(QtWidgets.QWidget):
                      ['Pipe', QtGui.QIcon(path + 'Core/Pipe.png'), "Denotes a pipe tile.\n\nPipe tiles are specified according to\nthe part of the pipe. It's important\nto specify the right parts or\nentrances will not function correctly."],
                      ['Rails', QtGui.QIcon(path + 'Core/Rails.png'), 'Used for all types of rails.\n\nPlease note that Pa3_rail.arc is hardcoded\nto replace rails with 3D models.'],
                      ['Conveyor Belt', QtGui.QIcon(path + 'Core/Conveyor.png'), 'Defines moving tiles.\n\nMoving tiles will move Mario in one\ndirection or another. Parameters are\nlargely unknown at this time.'],
-                     ['Question Block', QtGui.QIcon(path + 'Core/Qblock.png'), 'Allows making question blocks.']]
+                     ['Question Block', QtGui.QIcon(path + 'Core/Qblock.png'), 'Creates question blocks.']]
 
         i = 0
         for item in range(len(self.coreTypes)):
@@ -202,7 +202,7 @@ class paletteWidget(QtWidgets.QWidget):
                         ['Block', QtGui.QIcon(path + 'Prop/Break.png'), 'This denotes breakable tiles such\nas brick blocks. It is likely that these\nare subject to the same issues as\nexplodable blocks. They emit a coin\nwhen hit.'],
                         ['Falling Block', QtGui.QIcon(path + 'Prop/Fall.png'), 'Sets the block to fall after a set period. The\nblock is sadly replaced with a donut lift model.'],
                         ['Ledge', QtGui.QIcon(path + 'Prop/Ledge.png'), 'A ledge tile with unique properties.\n\nLedges can be shimmied along or\nhung from, but not walked along\nas with normal terrain. Must have the\nledge terrain type set as well.'],
-						['Meltable', QtGui.QIcon(path + 'Prop/Melt.png'), 'Supposedly allows melting the tile?']]
+                        ['Meltable', QtGui.QIcon(path + 'Prop/Melt.png'), 'Supposedly allows melting the tile?']]
 
         for item in range(len(propertyList)):
             self.propertyWidgets.append(QtWidgets.QCheckBox(propertyList[item][0]))
@@ -225,7 +225,7 @@ class paletteWidget(QtWidgets.QWidget):
         self.PassNone.setIconSize(QtCore.QSize(24, 24))
 
         self.PassThrough.setToolTip('Allows Mario to jump through the bottom\nof the tile and land on the top.')
-        self.PassDown.setToolTip("Allows Mario to fall through the tile but\n be able to jump up through it. Doesn't do anything.")
+        self.PassDown.setToolTip("Allows Mario to fall through the tile but\nbe able to jump up through it. Doesn't seem to actually do anything, though?")
         self.PassNone.setToolTip('Default setting')
 
         propertyLayout.addWidget(self.PassNone)
@@ -260,23 +260,41 @@ class paletteWidget(QtWidgets.QWidget):
         for item in range(len(self.terrainTypes)):
             self.terrainType.addItem(self.terrainTypes[item][1], self.terrainTypes[item][0])
             self.terrainType.setIconSize(QtCore.QSize(24, 24))
-        self.terrainType.setToolTip('Set the various types of terrain.\n\n'
-                                    '- Default: Terrain with no particular properties.\n'
-                                    '- Ice: Will be slippery.\n'
-                                    '- Snow: Will emit puffs of snow and snow noises.\n'
-                                    '- Quicksand: Will slowly swallow Mario. Required for creating the quicksand effect.\n'
-                                    '- Conveyor Belt Right: Mario moves rightwards.\n'
-                                    '- Conveyor Belt Left: Mario moves leftwards.\n'
-                                    '- Horiz. Rope: Must be solid to function. Mario will move hand-over-hand along the rope.\n'
-                                    '- Damage Tile: Tile causes damage like a spike.\n'
-                                    '- Ledge: Must have ledge property set as well.\n'
-                                    '- Ladder: Acts as a pole. Mario will face right or left as he climbs.\n'
-                                    '- Staircase: Does not allow Mario to slide.\n'
-                                    '- Carpet: Will muffle footstep noises.\n'
-                                    '- Dusty: Will emit puffs of dust.\n'
-                                    '- Muffled: Mostly muffles footstep noises.\n'
-                                    '- Grass: Will emit grass-like footstep noises.\n'
-                                    "- Beach Sand: Will create sand tufts around Mario's feet."
+        self.terrainType.setToolTip('Set the various types of terrain.'
+                                    '<ul>'
+                                    '<li><b>Default:</b><br>'
+                                    'Terrain with no particular properties.</li>'
+                                    '<li><b>Ice:</b><br>'
+                                    'Will be slippery.</li>'
+                                    '<li><b>Snow:</b><br>'
+                                    'Will emit puffs of snow and snow noises.</li>'
+                                    '<li><b>Quicksand:</b><br>'
+                                    'Will slowly swallow Mario. Required for creating the quicksand effect.</li>'
+                                    '<li><b>Conveyor Belt Right:</b><br>'
+                                    'Mario moves rightwards.</li>'
+                                    '<li><b>Conveyor Belt Left:</b><br>'
+                                    'Mario moves leftwards.</li>'
+                                    '<li><b>Horiz. Rope:</b><br>'
+                                    'Must be solid to function. Mario will move hand-over-hand along the rope.</li>'
+                                    '<li><b>Damage Tile:</b><br>'
+                                    'Tile causes damage like a spike.</li>'
+                                    '<li><b>Ledge:</b><br>'
+                                    'Must have ledge property set as well.</li>'
+                                    '<li><b>Ladder:</b><br>'
+                                    'Acts as a pole. Mario will face right or left as he climbs.</li>'
+                                    '<li><b>Staircase:</b><br>'
+                                    'Does not allow Mario to slide.</li>'
+                                    '<li><b>Carpet:</b><br>'
+                                    'Will muffle footstep noises.</li>'
+                                    '<li><b>Dusty:</b><br>'
+                                    'Will emit puffs of dust.</li>'
+                                    '<li><b>Muffled:</b><br>'
+                                    'Mostly muffles footstep noises.</li>'
+                                    '<li><b>Grass:</b><br>'
+                                    'Will emit grass-like footstep noises.</li>'
+                                    '<li><b>Beach Sand:</b><br>'
+                                    "Will create sand tufts around Mario's feet.</li>"
+                                    '</ul>'
                                    )
 
 
@@ -485,7 +503,7 @@ class paletteWidget(QtWidgets.QWidget):
                               PipeParams,
                               RailParams,
                               ConveyorBeltParams,
-							  QBlockParams]
+                              QBlockParams]
 
 
         layout = QtWidgets.QGridLayout()
