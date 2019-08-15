@@ -8,9 +8,9 @@ import sys
 
 from ctypes import create_string_buffer
 try:
-    from PySide2 import QtCore, QtGui, QtWidgets
-except ImportError:
     from PyQt5 import QtCore, QtGui, QtWidgets
+except ImportError:
+    from PySide2 import QtCore, QtGui, QtWidgets
 Qt = QtCore.Qt
 
 
