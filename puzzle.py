@@ -2512,20 +2512,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         # Make an arc and pack up the files!
+
+        # NOTE: adding the files/folders to the U8 object in
+        # alphabetical order is a simple workaround for a wii.py... bug?
+        # unintuitive quirk? Whatever. Fixes one of the issues listed
+        # in GitHub issue #3 (in the RoadrunnerWMC/Puzzle-Updated repo)
+
+        arcFiles = {}
+        arcFiles['BG_tex'] = None
+        arcFiles['BG_tex/{0}_tex.bin.LZ'.format(name)] = textureBuffer
+
+        arcFiles['BG_chk'] = None
+        arcFiles['BG_chk/d_bgchk_{0}.bin'.format(name)] = tileBuffer
+
+        arcFiles['BG_unt'] = None
+        arcFiles['BG_unt/{0}.bin'.format(name)] = objectBuffer
+        arcFiles['BG_unt/{0}_hd.bin'.format(name)] = objectMetaBuffer
+
+        arcFiles.update(Tileset.unknownFiles)
+
         arc = archive.U8()
-        arc['BG_tex'] = None
-        arc['BG_tex/{0}_tex.bin.LZ'.format(name)] = textureBuffer
-
-        arc['BG_chk'] = None
-        arc['BG_chk/d_bgchk_{0}.bin'.format(name)] = tileBuffer
-
-        arc['BG_unt'] = None
-        arc['BG_unt/{0}.bin'.format(name)] = objectBuffer
-        arc['BG_unt/{0}_hd.bin'.format(name)] = objectMetaBuffer
-
-        for name, data in Tileset.unknownFiles.items():
-            arc[name] = data
-
+        for name in sorted(arcFiles):
+            arc[name] = arcFiles[name]
         return arc._dump()
 
 
