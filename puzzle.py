@@ -1018,7 +1018,7 @@ class displayWidget(QtWidgets.QListView):
                                                             QtCore.QPoint(x + 24, y + 24),
                                                             QtCore.QPoint(x, y + 24)]))
 
-                elif curTile.byte2 & 0x20: # Solid-on-bottom
+                elif curTile.byte2 & 0x40: # Solid-on-bottom
                     painter.drawPolygon(QtGui.QPolygon([QtCore.QPoint(x, y + 24),
                                                         QtCore.QPoint(x + 24, y + 24),
                                                         QtCore.QPoint(x + 24, y + 18),
@@ -2924,7 +2924,7 @@ class MainWindow(QtWidgets.QMainWindow):
             propertyList.append('Breakable')
         if curTile.byte2 & 128:
             propertyList.append('Pass-Through')
-        if curTile.byte2 & 32:
+        if curTile.byte2 & 64:
             propertyList.append('Pass-Down')
         if curTile.byte1 & 2:
             propertyList.append('Falling')
@@ -2994,7 +2994,7 @@ class MainWindow(QtWidgets.QMainWindow):
         curTile.byte2 = ((palette.coreWidgets[6].isChecked() << 2) +
                         (palette.coreWidgets[3].isChecked() << 3) +
                         (palette.coreWidgets[7].isChecked() << 4) +
-                        (palette.PassDown.isChecked() << 5) +
+                        (palette.PassDown.isChecked() << 6) +
                         (palette.PassThrough.isChecked() << 7))
         curTile.byte3 = ((solid) +
                         (palette.coreWidgets[4].isChecked() << 1) +
