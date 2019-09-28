@@ -2256,12 +2256,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def openTileset(self):
-        '''Opens a Nintendo tileset arc and parses the heck out of it.'''
+        '''Asks the user for a filename, then calls openTilesetFromPath().'''
 
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Open NSMBW Tileset", '',
                     "Image Files (*.arc)")[0]
 
-        if not path: return
+        if path:
+            self.openTilesetFromPath(path)
+
+
+    def openTilesetFromPath(self, path):
+        '''Opens a Nintendo tileset arc and parses the heck out of it.'''
         self.setWindowTitle(os.path.basename(path))
         Tileset.clear()
 
@@ -3032,6 +3037,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 if '-nolib' in sys.argv:
     HaveNSMBLib = False
+    sys.argv.remove('-nolib')
 
 if __name__ == '__main__':
 
@@ -3039,6 +3045,8 @@ if __name__ == '__main__':
 
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
+    if len(sys.argv) > 1:
+        window.openTilesetFromPath(sys.argv[1])
     window.show()
     sys.exit(app.exec_())
     app.deleteLater()
