@@ -247,7 +247,7 @@ class paletteWidget(QtWidgets.QWidget):
                         ['Conveyor Belt Right', QtGui.QIcon(path + 'Core/Conveyor.png')],
                         ['Conveyor Belt Left', QtGui.QIcon(path + 'Core/Conveyor.png')],
                         ['Horiz. Climbing Rope', QtGui.QIcon(path + 'Terrain/Rope.png')],
-                        ['Damage Tile', QtGui.QIcon(path + 'Terrain/Spike.png')],
+                        ['Anti Wall Jumps', QtGui.QIcon(path + 'Terrain/Spike.png')],
                         ['Ledge', QtGui.QIcon(path + 'Terrain/Ledge.png')],
                         ['Ladder', QtGui.QIcon(path + 'Terrain/Ladder.png')],
                         ['Staircase', QtGui.QIcon(path + 'Terrain/Stairs.png')],
@@ -276,8 +276,8 @@ class paletteWidget(QtWidgets.QWidget):
                                     'Mario moves leftwards.</li>'
                                     '<li><b>Horiz. Rope:</b><br>'
                                     'Must be solid to function. Mario will move hand-over-hand along the rope.</li>'
-                                    '<li><b>Damage Tile:</b><br>'
-                                    'Tile causes damage like a spike.</li>'
+                                    '<li><b>Anti Wall Jumps:</b><br>'
+                                    'Mario cannot wall-jump off of the tile.</li>'
                                     '<li><b>Ledge:</b><br>'
                                     'Must have ledge property set as well.</li>'
                                     '<li><b>Ladder:</b><br>'
