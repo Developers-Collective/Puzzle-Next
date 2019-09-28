@@ -2765,6 +2765,10 @@ class MainWindow(QtWidgets.QMainWindow):
         fileMenu.addAction("Save as...", self.saveTilesetAs, QtGui.QKeySequence.SaveAs)
         fileMenu.addAction("Quit", self.close, QtGui.QKeySequence('Ctrl-Q'))
 
+        fileMenu.addSeparator()
+        nsmblibAct = fileMenu.addAction('Using NSMBLib' if HaveNSMBLib else 'Not using NSMBLib')
+        nsmblibAct.setEnabled(False)
+
         taskMenu = self.menuBar().addMenu("&Tasks")
 
         taskMenu.addAction("Set Tileset Slot...", self.setSlot, QtGui.QKeySequence('Ctrl+T'))
