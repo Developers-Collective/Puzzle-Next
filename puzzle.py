@@ -2259,7 +2259,7 @@ class MainWindow(QtWidgets.QMainWindow):
         '''Asks the user for a filename, then calls openTilesetFromPath().'''
 
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Open NSMBW Tileset", '',
-                    "Image Files (*.arc)")[0]
+                    "Tileset Files (*.arc)")[0]
 
         if path:
             self.openTilesetFromPath(path)
