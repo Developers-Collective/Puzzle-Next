@@ -2129,8 +2129,7 @@ def RGB4A3Decode(tex, useAlpha=True):
 
     # Convert the list of ARGB color values into a bytes object, and
     # then convert that into a QImage
-    img = QtGui.QImage(struct.pack('<262144I', *dest), 1024, 256, QtGui.QImage.Format_ARGB32_Premultiplied)
-    return img.convertToFormat(QtGui.QImage.Format_ARGB32)
+    return QtGui.QImage(struct.pack('<262144I', *dest), 1024, 256, QtGui.QImage.Format_ARGB32)
 
 
 def RGB4A3Encode(tex):
@@ -2306,12 +2305,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if HaveNSMBLib:
             tiledata = nsmblib.decompress11LZS(Image)
             argbdata = nsmblib.decodeTileset(tiledata)
-            dest = QtGui.QImage(argbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32_Premultiplied)
-            dest = dest.convertToFormat(QtGui.QImage.Format_ARGB32)
+            dest = QtGui.QImage(argbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32)
             if hasattr(nsmblib, 'decodeTilesetNoAlpha'):
                 rgbdata = nsmblib.decodeTilesetNoAlpha(tiledata)
-                noalphadest = QtGui.QImage(rgbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32_Premultiplied)
-                noalphadest = dest.convertToFormat(QtGui.QImage.Format_ARGB32)
+                noalphadest = QtGui.QImage(rgbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32)
             else:
                 noalphadest = RGB4A3Decode(tiledata, False)
         else:
@@ -2544,7 +2541,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def PackTexture(self):
 
-        tex = QtGui.QImage(1024, 256, QtGui.QImage.Format_ARGB32_Premultiplied)
+        tex = QtGui.QImage(1024, 256, QtGui.QImage.Format_ARGB32)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
 
@@ -2552,7 +2549,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Yoffset = 0
 
         for tile in Tileset.tiles:
-            minitex = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32_Premultiplied)
+            minitex = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32)
             minitex.fill(Qt.transparent)
             minipainter = QtGui.QPainter(minitex)
 
