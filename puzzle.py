@@ -668,7 +668,9 @@ def SetupObjectModel(self, objects, tiles):
 
         painter.end()
 
-        self.appendRow(QtGui.QStandardItem(QtGui.QIcon(tex), 'Object {0}'.format(count)))
+        item = QtGui.QStandardItem(QtGui.QIcon(tex), 'Object {0}'.format(count))
+        item.setEditable(False)
+        self.appendRow(item)
 
         count += 1
 
