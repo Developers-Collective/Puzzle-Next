@@ -169,7 +169,7 @@ class paletteWidget(QtWidgets.QWidget):
         rowE = QtWidgets.QHBoxLayout()
         rowF = QtWidgets.QHBoxLayout()
 
-        path = os.path.dirname(os.path.abspath(sys.argv[0])) + '/Icons/'
+        path = 'Icons/'
 
         self.coreTypes = [['Default', QtGui.QIcon(path + 'Core/Default.png'), 'The standard type for tiles.\n\nAny regular terrain or backgrounds\nshould be of generic type. It has no\n collision properties.'],
                      ['Slope', QtGui.QIcon(path + 'Core/Slope.png'), 'Defines a sloped tile\n\nSloped tiles have sloped collisions,\nwhich Mario can slide on.\n\nNote: Do NOT set slopes to have solid collision.'],
@@ -3102,7 +3102,7 @@ if __name__ == '__main__':
     # go to the script path
     path = module_path()
     if path is not None:
-        os.chdir(module_path())
+        os.chdir(path)
 
     window = MainWindow()
     if len(sys.argv) > 1:
