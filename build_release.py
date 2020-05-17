@@ -19,9 +19,9 @@ import PyInstaller.__main__
 PROJECT_NAME = 'Puzzle'
 PROJECT_VERSION = '1.0'
 
-WIN_ICON = os.path.join('reggiedata', 'win_icon.ico')
-MAC_ICON = os.path.join('reggiedata', 'reggie.icns')
-MAC_BUNDLE_IDENTIFIER = 'ca.chronometry.reggie'
+WIN_ICON = None
+MAC_ICON = None
+MAC_BUNDLE_IDENTIFIER = 'ca.chronometry.puzzle'
 
 SCRIPT_FILE = 'puzzle.py'
 DATA_FOLDERS = ['Icons']
@@ -161,10 +161,11 @@ args = [
     '--workpath=' + WORKPATH,
 ]
 
-if sys.platform == 'win32':
+if sys.platform == 'win32' and WIN_ICON:
     args.append('--icon=' + os.path.abspath(WIN_ICON))
 elif sys.platform == 'darwin':
-    args.append('--icon=' + os.path.abspath(MAC_ICON))
+    if MAC_ICON:
+        args.append('--icon=' + os.path.abspath(MAC_ICON))
     args.append('--osx-bundle-identifier=' + MAC_BUNDLE_IDENTIFIER)
 
 for e in excludes:
