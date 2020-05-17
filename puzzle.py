@@ -2621,19 +2621,36 @@ class MainWindow(QtWidgets.QMainWindow):
         useNSMBLib = HaveNSMBLib and hasattr(nsmblib, 'compress11LZS')
 
         if useNSMBLib:
-            # NSMBLib is available, so the user can choose whether to use it or not
+            # There are two versions of nsmblib floating around: the original
+            # one, where the compression doesn't work correctly, and a fixed one
+            # with correct compression.
+            # We're going to show a warning to the user if they have the broken one installed.
+            # To detect which one it is, we use the following test data:
+            COMPRESSION_TEST = b'\0\1\0\0\0\0\0\0\0\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0'
 
-            items = ("Slow Compression, Good Quality", "Fast Compression, but the Image gets damaged")
+            # The original broken algorithm compresses that incorrectly.
+            # So let's compress it, and then decompress it, and see if we
+            # got the right output.
+            compressionWorking = (nsmblib.decompress11LZS(nsmblib.compress11LZS(COMPRESSION_TEST)) == COMPRESSION_TEST)
 
-            item, ok = QtWidgets.QInputDialog.getItem(self, "Choose compression method",
-                    "Two methods of compression are available. Choose \n"
-                    "Fast compression for rapid testing. Choose slow \n"
-                    "compression for releases. Bug Treeki to get the fast \n"
-                    "compression fixed.", items, 0, False)
-            if ok and item == "Slow Compression, Good Quality":
-                useNSMBLib = False
-            else:
-                useNSMBLib = True
+            if not compressionWorking:
+                # NSMBLib is available, but only with the broken compression algorithm,
+                # so the user can choose whether to use it or not
+
+                items = ("Slow Compression, Good Quality", "Fast Compression, but the Image gets damaged")
+
+                item, ok = QtWidgets.QInputDialog.getItem(self, "Choose compression method",
+                        "Two methods of compression are available. Choose<br />"
+                        "Fast compression for rapid testing. Choose slow<br />"
+                        "compression for releases.<br />"
+                        "<br />"
+                        "To fix the fast compression, download and install<br />"
+                        "NSMBLib-Updated (\"pip uninstall nsmblib\", \"pip<br />"
+                        "install nsmblib\").\n", items, 0, False)
+                if ok and item == "Slow Compression, Good Quality":
+                    useNSMBLib = False
+                else:
+                    useNSMBLib = True
 
         else:
             # NSMBLib is not available, so we have to use the Python version
