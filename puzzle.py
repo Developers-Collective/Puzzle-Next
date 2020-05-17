@@ -2,7 +2,7 @@
 
 import archive
 import lz77
-import os.path
+import os, os.path
 import struct
 import sys
 
@@ -44,6 +44,30 @@ else: # PySide2
 
 
 Tileset = None
+
+
+def module_path():
+    """
+    This will get us the program's directory, even if we are frozen
+    using PyInstaller
+    """
+
+    if hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS'):  # PyInstaller
+        if sys.platform == 'darwin':  # macOS
+            # sys.executable is /x/y/z/reggie.app/Contents/MacOS/reggie
+            # We need to return /x/y/z/reggie.app/Contents/Resources/
+
+            macos = os.path.dirname(sys.executable)
+            if os.path.basename(macos) != 'MacOS':
+                return None
+
+            return os.path.join(os.path.dirname(macos), 'Resources')
+
+    if __name__ == '__main__':
+        return os.path.dirname(os.path.abspath(sys.argv[0]))
+
+    return None
+
 
 #############################################################################################
 ########################## Tileset Class and Tile/Object Subclasses #########################
@@ -3074,6 +3098,12 @@ if __name__ == '__main__':
     import sys
 
     app = QtWidgets.QApplication(sys.argv)
+
+    # go to the script path
+    path = module_path()
+    if path is not None:
+        os.chdir(module_path())
+
     window = MainWindow()
     if len(sys.argv) > 1:
         window.openTilesetFromPath(sys.argv[1])
