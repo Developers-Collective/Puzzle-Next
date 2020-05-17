@@ -2285,7 +2285,7 @@ class MainWindow(QtWidgets.QMainWindow):
         metadata = None
 
         for key, value in arc.files:
-            if value == None:
+            if value is None:
                 continue
             elif key.startswith('BG_tex/') and key.endswith('_tex.bin.LZ'):
                 Image = arc[key]
@@ -2299,7 +2299,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 Tileset.unknownFiles[key] = arc[key]
 
 
-        if (Image == None) or (behaviourdata == None) or (objstrings == None) or (metadata == None):
+        if (Image is None) or (behaviourdata is None) or (objstrings is None) or (metadata is None):
             QtWidgets.QMessageBox.warning(None, 'Error',  'Error - the necessary files were not found.\n\nNot a valid tileset, sadly.')
             return
 
@@ -2457,7 +2457,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def saveImage(self):
 
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
-        if fn == '': return
+        if not fn: return
 
         tex = QtGui.QPixmap(384, 384)
         tex.fill(Qt.transparent)
@@ -2479,7 +2479,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def saveTileset(self):
-        if self.name == '':
+        if not self.name:
             self.saveTilesetAs()
             return
 
@@ -2494,7 +2494,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def saveTilesetAs(self):
 
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.arc (*.arc)')[0]
-        if fn == '': return
+        if not fn: return
 
         outdata = self.saving(os.path.basename(str(fn))[:-4])
 
