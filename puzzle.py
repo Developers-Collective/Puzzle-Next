@@ -2483,12 +2483,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.saveTilesetAs()
             return
 
-
         outdata = self.saving(os.path.basename(self.name)[:-4])
 
-        fn = self.name
-        with open(fn, 'wb') as f:
-            f.write(outdata)
+        if outdata is not None:
+            fn = self.name
+            with open(fn, 'wb') as f:
+                f.write(outdata)
 
 
     def saveTilesetAs(self):
@@ -2496,12 +2496,14 @@ class MainWindow(QtWidgets.QMainWindow):
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.arc (*.arc)')[0]
         if fn == '': return
 
-        self.name = fn
-        self.setWindowTitle(os.path.basename(str(fn)))
-
         outdata = self.saving(os.path.basename(str(fn))[:-4])
-        with open(fn, 'wb') as f:
-            f.write(outdata)
+
+        if outdata is not None:
+            self.name = fn
+            self.setWindowTitle(os.path.basename(str(fn)))
+
+            with open(fn, 'wb') as f:
+                f.write(outdata)
 
 
     def saving(self, name):
@@ -2509,6 +2511,11 @@ class MainWindow(QtWidgets.QMainWindow):
         # Prepare tiles, objects, object metadata, and textures and stuff into buffers.
 
         textureBuffer = self.PackTexture()
+
+        if textureBuffer is None:
+            # The user canceled the saving process in the "use nsmblib?" dialog
+            return None
+
         tileBuffer = self.PackTiles()
         objectBuffers = self.PackObjects()
         objectBuffer = objectBuffers[0]
@@ -2647,7 +2654,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         "To fix the fast compression, download and install<br />"
                         "NSMBLib-Updated (\"pip uninstall nsmblib\", \"pip<br />"
                         "install nsmblib\").\n", items, 0, False)
-                if ok and item == "Slow Compression, Good Quality":
+                if not ok:
+                    return None
+
+                if item == "Slow Compression, Good Quality":
                     useNSMBLib = False
                 else:
                     useNSMBLib = True
