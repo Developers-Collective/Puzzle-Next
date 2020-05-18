@@ -1769,7 +1769,7 @@ class tileWidget(QtWidgets.QWidget):
         self.contY = event.y()
 
         TileMenu.addAction('Set tile...', self.setTile)
-        TileMenu.addAction('Add Item...', self.setItem)
+        TileMenu.addAction('Set item...', self.setItem)
 
         TileMenu.exec_(event.globalPos())
 
@@ -1906,22 +1906,22 @@ class tileWidget(QtWidgets.QWidget):
     def setItem(self):
         global Tileset
 
-        dlg = self.setItemDialog()
+        centerPoint = self.contentsRect().center()
+
+        upperLeftX = centerPoint.x() - self.size[0]*12
+        upperLeftY = centerPoint.y() - self.size[1]*12
+
+        x = int((self.contX - upperLeftX) / 24)
+        y = int((self.contY - upperLeftY) / 24)
+
+        obj = Tileset.objects[self.object].tiles[y][x]
+
+        dlg = self.setItemDialog(obj[2] >> 2)
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             # Do stuff
-            centerPoint = self.contentsRect().center()
-
-            upperLeftX = centerPoint.x() - self.size[0]*12
-            upperLeftY = centerPoint.y() - self.size[1]*12
-
             item = dlg.item.currentIndex()
 
-            x = int((self.contX - upperLeftX) / 24)
-            y = int((self.contY - upperLeftY) / 24)
-
-            obj = Tileset.objects[self.object].tiles[y][x]
-
-            obj = (obj[0], obj[1], obj[2] | (item << 2))
+            Tileset.objects[self.object].tiles[y][x] = (obj[0], obj[1], (obj[2] & 3) | (item << 2))
 
             self.update()
             self.updateList()
@@ -1929,13 +1929,29 @@ class tileWidget(QtWidgets.QWidget):
 
     class setItemDialog(QtWidgets.QDialog):
 
-        def __init__(self):
+        def __init__(self, initialIndex=0):
             QtWidgets.QDialog.__init__(self)
 
             self.setWindowTitle('Set item')
 
             self.item = QtWidgets.QComboBox()
-            self.item.addItems(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'])
+            self.item.addItems([
+                'Item specified in tile behavior',
+                'Fire Flower',
+                'Star',
+                'Coin',
+                'Vine',
+                'Spring',
+                'Mini Mushroom',
+                'Propeller Mushroom',
+                'Penguin Suit',
+                'Yoshi',
+                'Ice Flower',
+                'Unknown (11)',
+                'Unknown (12)',
+                'Unknown (13)',
+                'Unknown (14)'])
+            self.item.setCurrentIndex(initialIndex)
 
             self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
             self.buttons.accepted.connect(self.accept)
