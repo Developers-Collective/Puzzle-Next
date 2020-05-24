@@ -7,7 +7,7 @@ class LZS11(object):
         self.decomp_size = 0
         self.curr_size = 0
         self.compressed = True
-        self.outdata = []
+        self.outdata = bytearray()
 
     def Decompress11LZS(self, filein):
         offset = 0
@@ -20,14 +20,14 @@ class LZS11(object):
         decomp_size = struct.unpack('<I', filein[offset:offset+4])[0] >> 8
         self.decomp_size = decomp_size
         offset += 4
-        assert decomp_size <= 0x200000
+        # assert decomp_size <= 0x200000
         if decomp_size == 0:
             decomp_size = struct.unpack('<I', filein[offset:offset+4])[0]
             offset += 4
-        assert decomp_size <= 0x200000 << 8
+        # assert decomp_size <= 0x200000 << 8
 
         #print("Decompressing 0x%x. (outsize: 0x%x)" % (len(filein), decomp_size))
-        outdata = []
+        outdata = bytearray()
         curr_size = 0
         lenFileIn = len(filein)
 
@@ -92,7 +92,7 @@ class LZS11(object):
                     break
 
         if len(outdata) < decomp_size:
-            outdata.extend([0] * (decomp_size - len(outdata)))
+            outdata.extend(bytes(decomp_size - len(outdata)))
 
         self.outdata = outdata
         self.curr_size = curr_size
@@ -208,3 +208,72 @@ class LZS11(object):
         if recordMatchLen == 0:
             return 0, 0
         return offset - recordMatchOffset, recordMatchLen
+
+
+def main(args=None):
+    """
+    Main function for the CLI
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Puzzle LZ11 compressor/decompressor.')
+    subparsers = parser.add_subparsers(title='commands',
+        description='(run a command with -h for additional help)')
+
+    def handleCompress(pArgs):
+        """
+        Handle the "compress" command.
+        """
+        with open(pArgs.input_file, 'rb') as f:
+            data = f.read()
+
+        outdata = LZS11().Compress11LZS(data)
+
+        outfp = pArgs.output_file
+        if outfp is None: outfp = pArgs.input_file + '.cmp'
+
+        with open(outfp, 'wb') as f:
+            f.write(outdata)
+
+    parser_compress = subparsers.add_parser('compress', aliases=['c'],
+                                            help='compress a file')
+    parser_compress.add_argument('input_file',
+        help='input file to compress')
+    parser_compress.add_argument('output_file', nargs='?',
+        help='what to save the compressed file as')
+    parser_compress.set_defaults(func=handleCompress)
+
+    def handleDecompress(pArgs):
+        """
+        Handle the "decompress" command.
+        """
+        with open(pArgs.input_file, 'rb') as f:
+            data = f.read()
+
+        outdata = LZS11().Decompress11LZS(data)
+
+        outfp = pArgs.output_file
+        if outfp is None: outfp = pArgs.input_file + '.dec'
+
+        with open(outfp, 'wb') as f:
+            f.write(outdata)
+
+    parser_decompress = subparsers.add_parser('decompress', aliases=['d'],
+                                              help='decompress a file')
+    parser_decompress.add_argument('input_file',
+        help='input file to decompress')
+    parser_decompress.add_argument('output_file', nargs='?',
+        help='what to save the decompressed file as')
+    parser_decompress.set_defaults(func=handleDecompress)
+
+    # Parse args and run appropriate function
+    pArgs = parser.parse_args(args)
+    if hasattr(pArgs, 'func'):
+        pArgs.func(pArgs)
+    else:  # this happens if no arguments were specified at all
+        parser.print_usage()
+
+
+if __name__ == '__main__':
+    main()
