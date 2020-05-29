@@ -1272,11 +1272,20 @@ class tileOverlord(QtWidgets.QWidget):
     def removeObj(self):
         global Tileset
 
+        if not Tileset.objects:
+            return
+
         index = window.objectList.currentIndex()
 
         Tileset.removeObject(index.row())
         window.objmodel.removeRow(index.row())
-        self.tiles.clear()
+
+        index = window.objectList.currentIndex()
+        if index.row() == -1:
+            self.tiles.clear()
+        else:
+            window.objectList.setCurrentIndex(index)
+            self.setObject(index)
 
         window.objectList.update()
         self.update()
@@ -1636,6 +1645,9 @@ class tileWidget(QtWidgets.QWidget):
     def addColumn(self):
         global Tileset
 
+        if self.object >= len(Tileset.objects):
+            return
+
         if self.size[0] >= 24:
             return
 
@@ -1684,6 +1696,9 @@ class tileWidget(QtWidgets.QWidget):
 
     def addRow(self):
         global Tileset
+
+        if self.object >= len(Tileset.objects):
+            return
 
         if self.size[1] >= 24:
             return
