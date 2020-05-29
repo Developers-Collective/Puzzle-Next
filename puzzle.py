@@ -1277,6 +1277,9 @@ class tileOverlord(QtWidgets.QWidget):
 
         index = window.objectList.currentIndex()
 
+        if index.row() == -1:
+            return
+
         Tileset.removeObject(index.row())
         window.objmodel.removeRow(index.row())
 
