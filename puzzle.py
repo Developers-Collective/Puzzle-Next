@@ -2289,18 +2289,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose a folder for the export ...')
         if not path: return
-        print(path)
 
         for anim in animationKeys:
             #get height -> 2 bytes per pixel and 32 pixel width
             height = '%0*X' % (4, len(Tileset.animdata[anim])//64)
-            print(len(height))
             header = bytearray.fromhex(f"0020AF30000000010000000C0000001400000000{height}002000000005000000400000000000000000000000010000000100000000000000000000000000000000")
-            print(header)
             outdata = header + Tileset.animdata[anim]
 
             if outdata is not None:
-                print(anim[7:-4])
                 f = open(f"{path}/{anim[7:-4]}.tpl", 'wb')
                 f.write(outdata)
 
@@ -2361,8 +2357,6 @@ class MainWindow(QtWidgets.QMainWindow):
         objstrings = None
         metadata = None
 
-        animdata = []
-
         for key, value in arc.files:
             if value is None:
                 continue
@@ -2378,9 +2372,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 objstrings = arc[key]
             else:
                 Tileset.unknownFiles[key] = arc[key]
-
-#        for anim in Tileset.animdata:
-#            print(len(anim))
 
         if (Image is None) or (behaviourdata is None) or (objstrings is None) or (metadata is None):
             QtWidgets.QMessageBox.warning(None, 'Error',  'Error - the necessary files were not found.\n\nNot a valid tileset, sadly.')
