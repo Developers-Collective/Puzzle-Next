@@ -111,6 +111,7 @@ class TilesetClass():
 
         self.tiles = []
         self.objects = []
+        self.animdata = {}
         self.unknownFiles = {}
 
         self.slot = 0
@@ -597,7 +598,7 @@ class InfoBox(QtWidgets.QWidget):
         self.LabelB = QtWidgets.QLabel('Properties:')
         self.LabelB.setFont(Font)
 
-        self.hexdata = QtWidgets.QLabel('Hex Data: 0x00 0x00 0x00 0x00\n                0x00 0x00 0x00 0x00')
+        self.hexdata = QtWidgets.QLabel('Hex Data:\n0x00 0x00 0x00 0x00\n0x00 0x00 0x00 0x00')
         self.hexdata.setFont(Font)
 
 
@@ -634,6 +635,7 @@ class InfoBox(QtWidgets.QWidget):
         imageLayout.addLayout(coreLayout)
         imageLayout.addLayout(terrLayout)
         imageLayout.addLayout(paramLayout)
+        imageLayout.addStretch()
 
         self.imageBox.setLayout(imageLayout)
 
@@ -711,7 +713,7 @@ class displayWidget(QtWidgets.QListView):
         super(displayWidget, self).__init__(parent)
 
         self.setMinimumWidth(424)
-        self.setMaximumWidth(424)
+        self.setMaximumWidth(444)
         self.setMinimumHeight(404)
         self.setDragEnabled(True)
         self.setViewMode(QtWidgets.QListView.IconMode)
@@ -1673,7 +1675,6 @@ class tileWidget(QtWidgets.QWidget):
         self.update()
         self.updateList()
 
-
     def removeColumn(self):
         global Tileset
 
@@ -2280,10 +2281,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.newTileset()
 
-        self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed,
-                QtWidgets.QSizePolicy.Fixed))
+        self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed))
         self.setWindowTitle("New Tileset")
 
+    def exportAllFramesheets(self):
+        animationKeys = list(Tileset.animdata.keys())
+
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose a folder for the export ...')
+        if not path: return
+        print(path)
+
+        for anim in animationKeys:
+            #get height -> 2 bytes per pixel and 32 pixel width
+            height = '%0*X' % (4, len(Tileset.animdata[anim])//64)
+            print(len(height))
+            header = bytearray.fromhex(f"0020AF30000000010000000C0000001400000000{height}002000000005000000400000000000000000000000010000000100000000000000000000000000000000")
+            print(header)
+            outdata = header + Tileset.animdata[anim]
+
+            if outdata is not None:
+                print(anim[7:-4])
+                f = open(f"{path}/{anim[7:-4]}.tpl", 'wb')
+                f.write(outdata)
 
     def setuptile(self):
         self.tileWidget.tiles.clear()
@@ -2342,11 +2361,15 @@ class MainWindow(QtWidgets.QMainWindow):
         objstrings = None
         metadata = None
 
+        animdata = []
+
         for key, value in arc.files:
             if value is None:
                 continue
             elif key.startswith('BG_tex/') and key.endswith('_tex.bin.LZ'):
                 Image = arc[key]
+            elif key.startswith('BG_tex/') and key.endswith('.bin'):
+                Tileset.animdata[key] = arc[key]
             elif key.startswith('BG_chk/d_bgchk_') and key.endswith('.bin'):
                 behaviourdata = arc[key]
             elif key.startswith('BG_unt/') and key.endswith('_hd.bin'):
@@ -2356,6 +2379,8 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 Tileset.unknownFiles[key] = arc[key]
 
+#        for anim in Tileset.animdata:
+#            print(len(anim))
 
         if (Image is None) or (behaviourdata is None) or (objstrings is None) or (metadata is None):
             QtWidgets.QMessageBox.warning(None, 'Error',  'Error - the necessary files were not found.\n\nNot a valid tileset, sadly.')
@@ -2597,6 +2622,8 @@ class MainWindow(QtWidgets.QMainWindow):
         arcFiles['BG_unt'] = None
         arcFiles['BG_unt/{0}.bin'.format(name)] = objectBuffer
         arcFiles['BG_unt/{0}_hd.bin'.format(name)] = objectMetaBuffer
+
+        arcFiles.update(Tileset.animdata)
 
         arcFiles.update(Tileset.unknownFiles)
 
@@ -2860,6 +2887,9 @@ class MainWindow(QtWidgets.QMainWindow):
         taskMenu.addAction("Clear Collision Data", self.clearCollisions, QtGui.QKeySequence('Ctrl+Shift+Backspace'))
         taskMenu.addAction("Clear Object Data", self.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
 
+        animMenu = self.menuBar().addMenu("&Animations")
+        animMenu.addAction("Export all framesheets ...", self.exportAllFramesheets, QtGui.QKeySequence('Ctrl+Q'))
+
 
 
     def setSlot(self):
@@ -3058,7 +3088,7 @@ class MainWindow(QtWidgets.QMainWindow):
         info.terrainInfo.setText(palette.terrainTypes[curTile.byte5][0])
         info.paramInfo.setText(parameter[0])
 
-        info.hexdata.setText('Hex Data: {0} {1} {2} {3}\n                {4} {5} {6} {7}'.format(
+        info.hexdata.setText('Hex Data:\n{0} {1} {2} {3}\n{4} {5} {6} {7}'.format(
                                 hex(curTile.byte0), hex(curTile.byte1), hex(curTile.byte2), hex(curTile.byte3),
                                 hex(curTile.byte4), hex(curTile.byte5), hex(curTile.byte6), hex(curTile.byte7)))
 
