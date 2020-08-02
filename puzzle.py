@@ -145,6 +145,7 @@ class TilesetClass():
 
         self.tiles = []
         self.objects = []
+        self.animdata = {}
         self.unknownFiles = {}
 
 
@@ -648,7 +649,102 @@ class InfoBox(QtWidgets.QWidget):
         self.setLayout(superLayout)
 
 
+#############################################################################################
+##################### Framesheet List Widget and Model Setup with Painter #######################
 
+
+class framesheetList(QtWidgets.QListView):
+
+    def __init__(self, parent=None):
+        super(framesheetList, self).__init__(parent)
+
+        height = getFramesheetGridSize()
+        print(height)
+        self.setViewMode(QtWidgets.QListView.IconMode)
+        self.setHeight()
+        self.setMovement(QtWidgets.QListView.Static)
+        self.setBackgroundRole(QtGui.QPalette.BrightText)
+        self.setWrapping(False)
+        self.setMinimumHeight(400)
+        #self.setMaximumHeight(400)
+
+    def setHeight(self):
+        height = getFramesheetGridSize()
+        self.setIconSize(QtCore.QSize(32, height))
+        self.setGridSize(QtCore.QSize(200,height+50))
+
+
+def getFramesheetGridSize():
+    global Tileset
+    max = 0
+    for key in list(Tileset.animdata.keys()):
+        t = len(Tileset.animdata[key])//64
+        if t > max:
+            max = t
+    return max
+
+
+
+def SetupFramesheetModel(self, animdata):
+    global Tileset
+    self.framesheetList.setHeight()
+    self.framesheetmodel.clear()
+
+    count = 0
+    for key in list(animdata.keys()):
+        tex = QtGui.QPixmap(32, len(animdata[key])//64)
+        tex.fill(Qt.transparent)
+
+        painter = QtGui.QPainter(tex)
+
+        bytes = animdata[key]
+        bits = ''.join(format(byte, '08b') for byte in bytes)
+        bitColors = [bits[i:i+16] for i in range(0, len(bits), 16)]
+
+        Xoffset = 0
+        Yoffset = 0
+        XBlock = 0
+        YBlock = 0
+
+        for bitColor in bitColors:
+            if bitColor[0] == '0':
+                a = int(bitColor[1:3], 2)   *0x20
+                r = int(bitColor[4:7], 2)   *0x11
+                g = int(bitColor[8:11], 2)  *0x11
+                b = int(bitColor[12:15], 2) *0x11
+            else:
+                a = 0xFF
+                r = int(bitColor[1:5], 2)   *0x8
+                g = int(bitColor[6:10], 2)  *0x8
+                b = int(bitColor[11:15], 2) *0x8
+
+            color = QtGui.QColor(r, g, b, a)
+            pen = QtGui.QPen(color)
+            pen.setWidth(1);
+            painter.setPen(pen)
+            painter.drawPoint(Xoffset+XBlock, Yoffset+YBlock)
+
+            XBlock += 1
+            if XBlock >= 4:
+                XBlock = 0
+                YBlock += 1
+                if YBlock >= 4:
+                    YBlock = 0
+                    Xoffset += 4
+                    if Xoffset >= 32:
+                        Xoffset = 0
+                        Yoffset += 4
+
+        painter.end()
+
+        #fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
+        #tex.save(fn)
+
+        item = QtGui.QStandardItem(QtGui.QIcon(tex), '{0}'.format(key[7:-4]))
+        item.setEditable(False)
+        self.framesheetmodel.appendRow(item)
+
+        count += 1
 
 #############################################################################################
 ##################### Object List Widget and Model Setup with Painter #######################
@@ -2311,7 +2407,6 @@ class MainWindow(QtWidgets.QMainWindow):
             for tile in Tileset.tiles:
                 self.model.addPieces(tile.noalpha)
 
-
     def newTileset(self):
         '''Creates a new, blank tileset'''
 
@@ -2481,8 +2576,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setuptile()
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
+        SetupFramesheetModel(self, Tileset.animdata)
 
         self.name = path
+
+    def openFramesheet(self):
+        '''Opens an Image from png, and creates a new Framesheet from it.'''
+
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open Image", '', "Image Files (*.png)")[0]
+        if not path: return
+
+        tileImage = QtGui.QPixmap()
+        if not tileImage.load(path):
+            QtWidgets.QMessageBox.warning(self, "Open Image",
+                    "The image file could not be loaded.",
+                    QtWidgets.QMessageBox.Cancel)
+            return
+
+        if tileImage.width() != 32 or tileImage.height() % 32 != 0:
+            QtWidgets.QMessageBox.warning(self, "Open Image",
+                    "The image has incorrect dimensions. "
+                    "Needed sizes: 32 pixel width and a multiple of 32 height.",
+                    QtWidgets.QMessageBox.Cancel)
+            return
 
 
     def openImage(self):
@@ -2503,7 +2619,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if tileImage.width() != 384 or tileImage.height() != 384:
             QtWidgets.QMessageBox.warning(self, "Open Image",
-                    "The image was not the proper dimensions."
+                    "The image has incorrect dimensions. "
                     "Please resize the image to 384x384 pixels.",
                     QtWidgets.QMessageBox.Cancel)
             return
@@ -2879,8 +2995,8 @@ class MainWindow(QtWidgets.QMainWindow):
         taskMenu.addAction("Clear Object Data", self.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
 
         animMenu = self.menuBar().addMenu("&Animations")
-        animMenu.addAction("Export all framesheets ...", self.exportAllFramesheets, QtGui.QKeySequence('Ctrl+Q'))
-
+        animMenu.addAction("Export all framesheets", self.exportAllFramesheets, QtGui.QKeySequence('Ctrl+U'))
+        animMenu.addAction("Import new framesheet", self.openFramesheet, QtGui.QKeySequence('Ctrl+F'))
 
 
     def setSlot(self):
@@ -2928,8 +3044,11 @@ class MainWindow(QtWidgets.QMainWindow):
         Tileset.objects = []
 
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
+        SetupFramesheetModel(self, Tileset.animdata)
+
 
         self.objectList.update()
+        self.framesheetList.update()
         self.tileWidget.update()
 
 
@@ -2970,6 +3089,12 @@ class MainWindow(QtWidgets.QMainWindow):
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
         self.objectList.setModel(self.objmodel)
 
+        # Framesheet List
+        self.framesheetList = framesheetList()
+        self.framesheetmodel = QtGui.QStandardItemModel()
+        SetupFramesheetModel(self, Tileset.animdata)
+        self.framesheetList.setModel(self.framesheetmodel)
+
         # Creates the Tab Widget for behaviours and objects
         self.tabWidget = QtWidgets.QTabWidget()
         self.tileWidget = tileOverlord()
@@ -2982,9 +3107,17 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.tileWidget)
         self.container.setLayout(layout)
 
+        self.framesheetContainer = QtWidgets.QWidget()
+        animationLayout = QtWidgets.QVBoxLayout()
+        animationLayout.addWidget(self.framesheetList)
+        #animationLayout.addWidget(self.tileWidget)
+        self.framesheetContainer.setLayout(animationLayout)
+
         # Sets the Tabs
         self.tabWidget.addTab(self.paletteWidget, 'Behaviours')
         self.tabWidget.addTab(self.container, 'Objects')
+        
+        self.tabWidget.addTab(self.framesheetContainer, 'Animations')
 
         # Connections do things!
         self.tileDisplay.clicked.connect(self.paintFormat)
