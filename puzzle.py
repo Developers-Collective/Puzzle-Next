@@ -692,37 +692,22 @@ def SetupFramesheetModel(self, animdata):
 
     count = 0
     for key in list(animdata.keys()):
-        tex = QtGui.QPixmap(32, len(animdata[key])//64)
-        tex.fill(Qt.transparent)
-
-        painter = QtGui.QPainter(tex)
+        height = len(animdata[key])//64
+        
+        image = QtGui.QImage(32, height, QtGui.QImage.Format_ARGB32)
 
         bytes = animdata[key]
         bits = ''.join(format(byte, '08b') for byte in bytes)
-        bitColors = [bits[i:i+16] for i in range(0, len(bits), 16)]
 
         Xoffset = 0
         Yoffset = 0
         XBlock = 0
         YBlock = 0
 
-        for bitColor in bitColors:
-            if bitColor[0] == '0':
-                a = int(bitColor[1:3], 2)   *0x20
-                r = int(bitColor[4:7], 2)   *0x11
-                g = int(bitColor[8:11], 2)  *0x11
-                b = int(bitColor[12:15], 2) *0x11
-            else:
-                a = 0xFF
-                r = int(bitColor[1:5], 2)   *0x8
-                g = int(bitColor[6:10], 2)  *0x8
-                b = int(bitColor[11:15], 2) *0x8
+        for i in range(0, len(bits), 16):
+            hexColor = RGB4A3LUT[int(bits[i:i+16], 2)]
 
-            color = QtGui.QColor(r, g, b, a)
-            pen = QtGui.QPen(color)
-            pen.setWidth(1);
-            painter.setPen(pen)
-            painter.drawPoint(Xoffset+XBlock, Yoffset+YBlock)
+            image.setPixel(Xoffset+XBlock, Yoffset+YBlock, hexColor)
 
             XBlock += 1
             if XBlock >= 4:
@@ -735,7 +720,7 @@ def SetupFramesheetModel(self, animdata):
                         Xoffset = 0
                         Yoffset += 4
 
-        painter.end()
+        tex = QtGui.QPixmap.fromImage(image)
 
         #fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
         #tex.save(fn)
