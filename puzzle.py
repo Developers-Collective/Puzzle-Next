@@ -665,7 +665,7 @@ class framesheetList(QtWidgets.QListView):
         self.setMovement(QtWidgets.QListView.Static)
         self.setBackgroundRole(QtGui.QPalette.BrightText)
         self.setWrapping(False)
-        self.setMinimumHeight(400)
+        self.setMinimumHeight(512)
         #self.setMaximumHeight(400)
 
     def setHeight(self):
@@ -705,9 +705,9 @@ def SetupFramesheetModel(self, animdata):
         YBlock = 0
 
         for i in range(0, len(bits), 16):
-            hexColor = RGB4A3LUT[int(bits[i:i+16], 2)]
+            color = RGB4A3LUT[int(bits[i:i+16], 2)]
 
-            image.setPixel(Xoffset+XBlock, Yoffset+YBlock, hexColor)
+            image.setPixel(Xoffset+XBlock, Yoffset+YBlock, color)
 
             XBlock += 1
             if XBlock >= 4:
@@ -730,6 +730,233 @@ def SetupFramesheetModel(self, animdata):
         self.framesheetmodel.appendRow(item)
 
         count += 1
+
+
+def RGB4A3FramesheetEncode(tex):
+    shorts = []
+    colorCache = {}
+    for Yoffset in range(0, tex.height(), 4):
+        for Xoffset in range(0,32,4):
+            for ypixel in range(Yoffset, Yoffset + 4):
+                for xpixel in range(Xoffset, Xoffset + 4):
+
+                    pixel = tex.pixel(xpixel, ypixel)
+
+                    a = pixel >> 24
+                    r = (pixel >> 16) & 0xFF
+                    g = (pixel >> 8) & 0xFF
+                    b = pixel & 0xFF
+
+                    if pixel in colorCache:
+                        rgba = colorCache[pixel]
+
+                    else:
+                        if a < 238: # RGB4A3
+                            alpha = ((a + 18) << 1) // 73
+                            red = (r + 8) // 17
+                            green = (g + 8) // 17
+                            blue = (b + 8) // 17
+
+                            # 0aaarrrrggggbbbb
+                            rgba = blue | (green << 4) | (red << 8) | (alpha << 12)
+
+                        else: # RGB555
+                            red = ((r + 4) << 2) // 33
+                            green = ((g + 4) << 2) // 33
+                            blue = ((b + 4) << 2) // 33
+
+                            # 1rrrrrgggggbbbbb
+                            rgba = blue | (green << 5) | (red << 10) | (0x8000)
+
+                            colorCache[pixel] = rgba
+
+                    shorts.append(rgba)
+    return struct.pack('>{0}H'.format(len(shorts)), *shorts)
+
+
+class framesheetOverlord(QtWidgets.QWidget):
+
+    def __init__(self):
+        super(framesheetOverlord, self).__init__()
+
+        
+
+        self.addFramesheet = QtWidgets.QPushButton('Add')
+        self.removeFramesheet = QtWidgets.QPushButton('Remove')
+        self.replaceFramesheet = QtWidgets.QPushButton('Replace')
+        self.renameFramesheet = QtWidgets.QPushButton('Rename')
+
+        self.tilesetType = QtWidgets.QLabel('Pa0')
+
+
+        # Connections
+        self.addFramesheet.released.connect(self.addFs)
+        self.removeFramesheet.released.connect(self.removeFs)
+        self.replaceFramesheet.released.connect(self.replaceFs)
+        self.renameFramesheet.released.connect(self.renameFs)
+
+
+        # Layout
+        layout = QtWidgets.QGridLayout()
+
+
+        layout.addWidget(self.addFramesheet, 0, 6, 1, 1)
+        layout.addWidget(self.removeFramesheet, 0, 7, 1, 1)
+        layout.addWidget(self.replaceFramesheet, 0, 8, 1, 1)
+        layout.addWidget(self.renameFramesheet, 0, 9, 1, 1)
+
+        layout.setRowMinimumHeight(1, 40)
+
+        layout.setRowStretch(1, 1)
+
+        self.setLayout(layout)
+
+
+    def openFs(self, forAdding = True):
+        '''Opens an framesheet from png.'''
+
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open framesheet", '', "Image Files (*.png)")[0]
+        if not path: return
+
+        framesheet = QtGui.QPixmap()
+        if not framesheet.load(path):
+            QtWidgets.QMessageBox.warning(self, "Open framesheet",
+                    "The framesheet file could not be loaded.",
+                    QtWidgets.QMessageBox.Cancel)
+            return
+
+        if forAdding and framesheet.width() != 32 or framesheet.height() % 32 != 0:
+            QtWidgets.QMessageBox.warning(self, "Open framesheet",
+                    "The framesheet has incorrect dimensions. "
+                    "Needed sizes: 32 pixel width and a multiple of 32 height.",
+                    QtWidgets.QMessageBox.Cancel)
+            return
+
+        return (framesheet, path)
+
+
+    def addFs(self):
+        global Tileset
+
+        #Tileset.addObject()
+
+        framesheet, path = self.openFs()
+        if not framesheet: return
+        base = os.path.basename(path)
+        name = os.path.splitext(base)[0]
+
+
+        while self.nameIsTaken(name):
+            newName, ok = QtWidgets.QInputDialog.getText(self, 'Rename framesheet', 'The framesheet name is already taken!\nEnter a new name:')
+
+            if not ok:
+                return
+
+            if not newName or " " in newName:
+                QtWidgets.QMessageBox.warning(self, "Rename framesheet",
+                        "The file name cannot be empty or contain any spaces.",
+                        QtWidgets.QMessageBox.Cancel)
+                continue
+
+            name = newName
+
+        image = framesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32);
+        data = RGB4A3FramesheetEncode(image)
+        Tileset.animdata["BG_tex/{0}.bin".format(name)] = data
+
+        window.framesheetmodel.appendRow(QtGui.QStandardItem(QtGui.QIcon(framesheet), '{0}'.format(name)))
+        index = window.framesheetList.currentIndex()
+        window.framesheetList.setCurrentIndex(index)
+        #self.setObject(index)
+
+        window.framesheetList.update()
+        self.update()
+
+
+    def removeFs(self):
+        if not Tileset.animdata:
+            return
+
+        index = window.framesheetList.currentIndex()
+
+        if index.row() == -1:
+            return
+
+        name = window.framesheetmodel.itemFromIndex(index).text()
+        Tileset.animdata.pop("BG_tex/{0}.bin".format(name), None)
+
+        window.framesheetmodel.removeRow(index.row())
+
+        index = window.framesheetList.currentIndex()
+        if not index.row() == -1:
+            window.framesheetList.setCurrentIndex(index)
+            #self.setObject(index)
+
+        window.framesheetList.update()
+        self.update()
+
+
+    def replaceFs(self):
+        index = window.framesheetList.currentIndex()
+
+        if index.row() == -1:
+            return
+
+        name = window.framesheetmodel.itemFromIndex(index).text()
+        iconSize = window.framesheetmodel.itemFromIndex(index).icon().availableSizes()[0]
+        framesheet = self.openFs(False)[0]
+
+        if not framesheet.width() == iconSize.width() or not framesheet.height() == iconSize.height():
+            QtWidgets.QMessageBox.warning(self, "Open framesheet",
+                    "The framesheet has incorrect dimensions. "
+                    "Needed sizes: {0} pixel width and {1} pixel height.".format(iconSize.width(), iconSize.height()),
+                    QtWidgets.QMessageBox.Cancel)
+            return
+
+        image = framesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32);
+        data = RGB4A3FramesheetEncode(image)
+        Tileset.animdata["BG_tex/{0}.bin".format(name)] = data
+
+        window.framesheetmodel.itemFromIndex(index).setIcon(QtGui.QIcon(framesheet))
+
+        window.framesheetList.update()
+        self.update()
+
+
+    def renameFs(self):
+        index = window.framesheetList.currentIndex()
+
+        if index.row() == -1:
+            return
+
+        oldName = window.framesheetmodel.itemFromIndex(index).text()
+
+        name, ok = QtWidgets.QInputDialog.getText(self, 'Rename framesheet', 'Enter the new name:')
+        if not ok or name == oldName:
+            return
+
+        if not name or " " in name:
+            QtWidgets.QMessageBox.warning(self, "Rename framesheet",
+                    "The file name cannot be empty or contain any spaces.",
+                    QtWidgets.QMessageBox.Cancel)
+            return
+
+        if self.nameIsTaken(name):
+            QtWidgets.QMessageBox.warning(self, "Rename framesheet",
+                    "The file name is already taken by another framesheet.",
+                    QtWidgets.QMessageBox.Cancel)
+            return
+
+        window.framesheetmodel.itemFromIndex(index).setText(name)
+
+        Tileset.animdata["BG_tex/{0}.bin".format(name)] = Tileset.animdata.pop("BG_tex/{0}.bin".format(oldName))
+
+        window.framesheetList.update()
+        self.update()
+
+
+    def nameIsTaken(self, name):
+        return "BG_tex/{0}.bin".format(name) in list(Tileset.animdata.keys())
 
 #############################################################################################
 ##################### Object List Widget and Model Setup with Painter #######################
@@ -2365,7 +2592,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed))
         self.setWindowTitle("New Tileset")
 
-    def exportAllFramesheets(self):
+    def exportAllFramesheetsAsTpl(self):
         animationKeys = list(Tileset.animdata.keys())
 
         path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose a folder for the export ...')
@@ -2565,25 +2792,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.name = path
 
-    def openFramesheet(self):
-        '''Opens an Image from png, and creates a new Framesheet from it.'''
 
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open Image", '', "Image Files (*.png)")[0]
-        if not path: return
-
-        tileImage = QtGui.QPixmap()
-        if not tileImage.load(path):
-            QtWidgets.QMessageBox.warning(self, "Open Image",
-                    "The image file could not be loaded.",
-                    QtWidgets.QMessageBox.Cancel)
-            return
-
-        if tileImage.width() != 32 or tileImage.height() % 32 != 0:
-            QtWidgets.QMessageBox.warning(self, "Open Image",
-                    "The image has incorrect dimensions. "
-                    "Needed sizes: 32 pixel width and a multiple of 32 height.",
-                    QtWidgets.QMessageBox.Cancel)
-            return
 
 
     def openImage(self):
@@ -2715,7 +2924,8 @@ class MainWindow(QtWidgets.QMainWindow):
         arcFiles['BG_unt/{0}.bin'.format(name)] = objectBuffer
         arcFiles['BG_unt/{0}_hd.bin'.format(name)] = objectMetaBuffer
 
-        arcFiles.update(Tileset.animdata)
+        self.sortedAnimdata = sorted(Tileset.animdata.items())
+        arcFiles.update(self.sortedAnimdata)
 
         arcFiles.update(Tileset.unknownFiles)
 
@@ -2980,8 +3190,8 @@ class MainWindow(QtWidgets.QMainWindow):
         taskMenu.addAction("Clear Object Data", self.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
 
         animMenu = self.menuBar().addMenu("&Animations")
-        animMenu.addAction("Export all framesheets", self.exportAllFramesheets, QtGui.QKeySequence('Ctrl+U'))
-        animMenu.addAction("Import new framesheet", self.openFramesheet, QtGui.QKeySequence('Ctrl+F'))
+        #animMenu.addAction("Export all framesheets", self.exportAllFramesheets, QtGui.QKeySequence('Ctrl+F'))
+        animMenu.addAction("Export all framesheets as Tpl", self.exportAllFramesheetsAsTpl, QtGui.QKeySequence('Ctrl+Shift+F'))
 
 
     def setSlot(self):
@@ -3082,6 +3292,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Creates the Tab Widget for behaviours and objects
         self.tabWidget = QtWidgets.QTabWidget()
+        self.framesheetWidget = framesheetOverlord()
         self.tileWidget = tileOverlord()
         self.paletteWidget = paletteWidget(self)
 
@@ -3095,7 +3306,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.framesheetContainer = QtWidgets.QWidget()
         animationLayout = QtWidgets.QVBoxLayout()
         animationLayout.addWidget(self.framesheetList)
-        #animationLayout.addWidget(self.tileWidget)
+        animationLayout.addWidget(self.framesheetWidget)
         self.framesheetContainer.setLayout(animationLayout)
 
         # Sets the Tabs
@@ -3271,6 +3482,7 @@ if __name__ == '__main__':
     import sys
 
     app = QtWidgets.QApplication(sys.argv)
+    app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
 
     # go to the script path
     path = module_path()
