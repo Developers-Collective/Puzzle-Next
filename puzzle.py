@@ -150,6 +150,185 @@ class TilesetClass():
 
 
 #############################################################################################
+###################################### AnimTiles Class ######################################
+
+def readString(data, pos):
+    c = data[pos]
+    s = ''
+
+    while c != 0:
+        s += chr(c)
+        pos += 1
+        c = data[pos]
+
+    return s
+
+class AnimTilesClass():
+    '''Contains Animation data.'''
+
+    def __init__(self):
+        '''Constructor'''
+        self.animations = []
+
+
+    def addAnimation(self, animation):
+        '''Adds animation data'''
+        self.animations.append(animation)
+
+
+    def removeAnimation(self, animation):
+        '''Removes an animation'''
+        #self.texnames.remove(texname)
+        print("unfinished")
+
+    def clear(self):
+        '''Clears everything for a new file'''
+        self.animations = []
+
+
+    def addFromBinFile(self, bin):
+        with open(bin, 'rb') as f:
+            bin_ = f.read()
+
+        header = struct.unpack('>4sI', bin_[:8])
+
+        if header[0] != b'NWRa':
+            print("Error: invalid .bin file: file magic was not NWRa")
+
+        pos = 8
+        for i in range(header[1]):
+            # read entry
+            entry = struct.unpack('>HHHBB', bin_[pos : pos + 8])
+            pos += 8
+
+            # extract name
+            name = readString(bin_, entry[0])
+
+            # extract delays
+            delays = readString(bin_, entry[1])
+            delays = struct.unpack('>' + str(len(delays)) + 'B', bytes(delays, 'ascii'))
+            delays = list(map(int, delays))
+
+            # tilenum
+            tilenum = int(entry[2])
+            tileset = int(entry[3])
+            reverse = int(entry[4]) == 1
+
+            self.addAnimation({
+                'texname': name,
+                'framedelays': delays,
+                'tilenum': tilenum,
+                'tileset': tileset,
+                'reverse': reverse
+            })
+
+        # write output file
+        properties = ['texname', 'framedelays', 'tilenum', 'tileset', 'reverse']
+        out = ""
+        for animation in self.animations:
+            for prop in properties:
+                if prop == 'reverse':
+                    if animation[prop] == True:
+                        out += 'reverse = yes\n'
+                    continue
+
+                elif prop == 'framedelays':
+                    s = ', '.join(map(str, animation[prop]))
+                else:
+                    s = str(animation[prop])
+
+                out += "%s = %s\n" % (str(prop), s)
+
+            out += '\nend tile\n\n'
+
+        # remove 1 extra newline
+        out = out[:-1]
+        return out
+
+
+    def encode(self):
+        out = struct.pack('>4sI', b'NWRa', len(self.animations))
+
+        # first off, calculate a length for the main file
+        # so we can build the string table easily
+        size = len(out)
+        size += len(self.animations) * 8
+
+        strTable = ''
+        strOffset = size + len(strTable)
+
+        # now, write tiles
+        for animation in self.animations:
+            # encode the name
+            texNameOffset = strOffset
+
+            # there's only room for 56 characters
+            name = animation['texname']
+            if len(name) > 56:
+                name = name[:56]
+
+            strTable += name + '\0'
+            strOffset += len(name) + 1
+
+            # encode the delays
+            frameDelays = ''
+            for delay in animation['framedelays']:
+                frameDelays += chr(delay)
+
+            frameDelayOffset = strOffset
+            strOffset += len(frameDelays) + 1
+            strTable += frameDelays + '\0'
+
+            tileNum = animation['tilenum']
+            tilesetNum = animation['tileset']
+
+            if 'reverse' in animation and animation['reverse']:
+                reverse = 1
+            else:
+                reverse = 0
+
+            out += struct.pack('>HHHBB', texNameOffset, frameDelayOffset, tileNum, tilesetNum, reverse)
+
+        # and save the result
+        #print(strTable)
+        self.bin = out + bytes(strTable, 'utf8')
+
+
+    def addFromText(self, lines):
+        # strip whitespace
+        proc = []
+        for line in lines:
+            proc.append(line.strip())
+
+        # self.animations is an array of dicts
+        animations = []
+        currentAnimation = {}
+
+        # parse the file
+        for line in proc:
+            if line == 'end tile':
+                animations.append(currentAnimation)
+                currentAnimation = {}
+            elif line != '':
+                s = line.split('=', 2)
+                name = s[0].strip()
+                val = s[1].strip()
+
+                if name == 'framedelays': val = list(map(int, val.split(',')))
+                if name == 'tilenum': val = int(val, 0)
+                if name == 'tileset': val = int(val, 0)
+                if name == 'reverse':
+                    if val == 'yes':
+                        val = True
+                    else:
+                        val = False
+
+                currentAnimation[name] = val
+
+        self.animations.extend(animations)
+
+
+#############################################################################################
 ######################### Palette for painting behaviours to tiles ##########################
 
 
@@ -581,6 +760,24 @@ class InfoBox(QtWidgets.QWidget):
         self.collisionOverlay = QtWidgets.QCheckBox('Overlay Collision')
         self.collisionOverlay.clicked.connect(updateAllTiles)
 
+        self.screenshotWindow = QtWidgets.QWidget()
+        self.screenshotLayout = QtWidgets.QVBoxLayout()
+        self.screenshotWindow.setLayout(self.screenshotLayout)
+        self.screenshotWindow.setWindowTitle("View enlarged screenshot")
+        self.label = QtWidgets.QLabel()
+        self.screenshotLayout.addWidget(self.label)
+        def showScreenshot():
+            #fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
+            self.image = window.tileDisplay.grab()
+            self.image = self.image.scaled(self.image.width()*3, self.image.height()*3)
+            self.label.setPixmap(self.image)
+            self.screenshotWindow.show()
+        def hideScreenshot():
+            self.screenshotWindow.hide()
+
+        self.screenshotButton = QtWidgets.QPushButton('View enlarged screenshot')
+        self.screenshotButton.pressed.connect(showScreenshot)
+        #self.screenshotButton.released.connect(hideScreenshot)
 
         self.coreInfo = QtWidgets.QLabel()
         self.propertyInfo = QtWidgets.QLabel('             \n\n\n\n\n')
@@ -640,9 +837,9 @@ class InfoBox(QtWidgets.QWidget):
 
         self.imageBox.setLayout(imageLayout)
 
-
         superLayout.addWidget(self.imageBox, 0, 0)
         superLayout.addWidget(self.collisionOverlay, 1, 0)
+        superLayout.addWidget(self.screenshotButton, 1, 1)
         infoLayout.addRow(self.LabelB, self.propertyInfo)
         infoLayout.addRow(self.hexdata)
         superLayout.addLayout(infoLayout, 0, 1, 2, 1)
@@ -659,7 +856,6 @@ class framesheetList(QtWidgets.QListView):
         super(framesheetList, self).__init__(parent)
 
         height = getFramesheetGridSize()
-        print(height)
         self.setViewMode(QtWidgets.QListView.IconMode)
         self.setHeight()
         self.setMovement(QtWidgets.QListView.Static)
@@ -806,8 +1002,6 @@ class framesheetOverlord(QtWidgets.QWidget):
         layout.addWidget(self.renameFramesheet, 0, 9, 1, 1)
 
         layout.setRowMinimumHeight(1, 40)
-
-        layout.setRowStretch(1, 1)
 
         self.setLayout(layout)
 
@@ -958,6 +1152,151 @@ class framesheetOverlord(QtWidgets.QWidget):
     def nameIsTaken(self, name):
         return "BG_tex/{0}.bin".format(name) in list(Tileset.animdata.keys())
 
+
+#############################################################################################
+################################### Frame Editor Widget #####################################
+
+
+class frameEditorOverlord(QtWidgets.QWidget):
+
+    def __init__(self):
+        super(frameEditorOverlord, self).__init__()
+
+        self.explanation = QtWidgets.QLabel('Click on a framesheet in the \"Framesheets\" tab')
+        self.table = QtWidgets.QTableView()
+        self.checkBox = QtWidgets.QCheckBox('Reverse playback direction')
+
+        self.importCurrent = QtWidgets.QPushButton('Import for current framesheet')
+        self.importAll = QtWidgets.QPushButton('Import for all framesheets of Tileset')
+        self.exportCurrent = QtWidgets.QPushButton('Export for current framesheet')
+        self.exportAll = QtWidgets.QPushButton('Export for all framesheets of Tileset')
+
+
+
+        # Connections
+        self.importCurrent.released.connect(self.importForCurrent)
+        #self.importAll.released.connect(self.removeFs)
+        #self.exportCurrent.released.connect(self.replaceFs)
+        #self.exportAll.released.connect(self.renameFs)
+
+
+
+        # Layout
+        layout = QtWidgets.QGridLayout()
+
+        layout.addWidget(self.explanation, 0, 0, 1, 2)
+        layout.addWidget(self.table, 1, 0, 1, 2)
+        layout.addWidget(self.checkBox,2,0,1,2)
+
+        layout.addWidget(self.importCurrent, 3, 0, 1, 1)
+        layout.addWidget(self.importAll, 3, 1, 1, 1)
+        layout.addWidget(self.exportCurrent, 4, 0, 1, 1)
+        layout.addWidget(self.exportAll, 4, 1, 1, 1)
+
+        layout.setRowMinimumHeight(1, 40)
+
+        self.setLayout(layout)
+
+
+    def importForCurrent(self):
+        print("Nothing here yet ...")
+
+#############################################################################################
+#################################### animTiles Widget #######################################
+
+
+class animTilesOverlord(QtWidgets.QWidget):
+
+    def __init__(self):
+        super(animTilesOverlord, self).__init__()
+
+        self.searchText = QtWidgets.QLineEdit()
+        self.searchButton = QtWidgets.QPushButton('Search')
+
+        self.text = QtWidgets.QTextEdit()
+
+        self.importBin = QtWidgets.QPushButton('Import from .bin')
+        self.importTxt = QtWidgets.QPushButton('Import from .txt')
+        self.exportBin = QtWidgets.QPushButton('Export to .bin')
+        self.exportTxt = QtWidgets.QPushButton('Export to .txt')
+
+
+        # Connections
+        self.importBin.released.connect(self.importFromBin)
+        self.importTxt.released.connect(self.importFromTxt)
+        self.exportBin.released.connect(self.exportToBin)
+        self.exportTxt.released.connect(self.exportToTxt)
+
+
+
+        # Layout
+        layout = QtWidgets.QGridLayout()
+
+        layout.addWidget(self.searchText, 0, 0, 1, 3)
+        layout.addWidget(self.searchButton, 0, 3, 1, 1)
+
+        layout.addWidget(self.text, 1, 0, 1, 4)
+
+        layout.addWidget(self.importBin, 2, 0, 1, 2)
+        layout.addWidget(self.importTxt, 2, 2, 1, 2)
+        layout.addWidget(self.exportBin, 3, 0, 1, 2)
+        layout.addWidget(self.exportTxt, 3, 2, 1, 2)
+
+        layout.setRowMinimumHeight(1, 40)
+
+        self.setLayout(layout)
+
+
+    def importFromBin(self):
+        global AnimTiles
+        AnimTiles.clear()
+
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .bin file", '', "AnimTiles File (*.bin)")[0]
+        if not path: return
+
+        txt = AnimTiles.addFromBinFile(path)
+
+        self.text.setPlainText(txt)
+
+
+    def importFromTxt(self):
+        global AnimTiles
+        AnimTiles.clear()
+
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .txt file", '', "AnimTiles File (*.txt)")[0]
+        if not path: return
+
+        with open(path, 'r') as file:
+            lines = file.readlines()
+
+        AnimTiles.addFromText(lines)
+
+        with open(path, 'r') as file:
+            txt = file.read()
+
+        self.text.setPlainText(txt)
+
+
+    def exportToBin(self):
+        global AnimTiles
+
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .bin file', '', 'AnimTiles File (*.bin)')[0]
+        if not fn: return
+
+        AnimTiles.encode()
+
+        with open(fn, 'wb') as f:
+            f.write(AnimTiles.bin)
+
+
+    def exportToTxt(self):
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', '', 'AnimTiles File (*.txt)')[0]
+        if not fn: return
+
+        with open(fn, 'w') as f:
+            f.write(self.text.toPlainText())
+
+
 #############################################################################################
 ##################### Object List Widget and Model Setup with Painter #######################
 
@@ -970,7 +1309,7 @@ class objectList(QtWidgets.QListView):
 
         self.setViewMode(QtWidgets.QListView.IconMode)
         self.setIconSize(QtCore.QSize(96,96))
-        self.setGridSize(QtCore.QSize(114,114))
+        self.setGridSize(QtCore.QSize(128,128))
         self.setMovement(QtWidgets.QListView.Static)
         self.setBackgroundRole(QtGui.QPalette.BrightText)
         self.setWrapping(False)
@@ -2580,6 +2919,9 @@ class MainWindow(QtWidgets.QMainWindow):
         global Tileset
         Tileset = TilesetClass()
 
+        global AnimTiles
+        AnimTiles = AnimTilesClass()
+
         self.name = ''
 
         self.setupMenus()
@@ -2591,6 +2933,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed))
         self.setWindowTitle("New Tileset")
+
 
     def exportAllFramesheetsAsTpl(self):
         animationKeys = list(Tileset.animdata.keys())
@@ -2608,6 +2951,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 f = open(f"{path}/{anim[7:-4]}.tpl", 'wb')
                 f.write(outdata)
 
+
     def setuptile(self):
         self.tileWidget.tiles.clear()
         self.model.clear()
@@ -2619,12 +2963,17 @@ class MainWindow(QtWidgets.QMainWindow):
             for tile in Tileset.tiles:
                 self.model.addPieces(tile.noalpha)
 
+
     def newTileset(self):
         '''Creates a new, blank tileset'''
 
         global Tileset
         Tileset.clear()
         Tileset = TilesetClass()
+
+        global AnimTiles
+        AnimTiles.clear()
+        AnimTiles = AnimTilesClass()
 
         EmptyPix = QtGui.QPixmap(24, 24)
         EmptyPix.fill(Qt.black)
@@ -3170,13 +3519,13 @@ class MainWindow(QtWidgets.QMainWindow):
         pixmap.fill(Qt.black)
         icon = QtGui.QIcon(pixmap)
 
-        self.action = fileMenu.addAction(icon, "New", self.newTileset, QtGui.QKeySequence.New)
-        fileMenu.addAction("Open...", self.openTileset, QtGui.QKeySequence.Open)
+        self.action = fileMenu.addAction(icon, "New", self.newTileset, QtGui.QKeySequence('Ctrl+N'))
+        fileMenu.addAction("Open Tileset...", self.openTileset, QtGui.QKeySequence('Ctrl+O'))
         fileMenu.addAction("Import Image...", self.openImage, QtGui.QKeySequence('Ctrl+I'))
         fileMenu.addAction("Export Image...", self.saveImage, QtGui.QKeySequence('Ctrl+E'))
-        fileMenu.addAction("Save", self.saveTileset, QtGui.QKeySequence.Save)
-        fileMenu.addAction("Save as...", self.saveTilesetAs, QtGui.QKeySequence.SaveAs)
-        fileMenu.addAction("Quit", self.close, QtGui.QKeySequence('Ctrl-Q'))
+        fileMenu.addAction("Save", self.saveTileset, QtGui.QKeySequence('Ctrl+S'))
+        fileMenu.addAction("Save as...", self.saveTilesetAs, QtGui.QKeySequence('Ctrl+Shift+S'))
+        fileMenu.addAction("Quit", self.close, QtGui.QKeySequence('Ctrl+Q'))
 
         fileMenu.addSeparator()
         nsmblibAct = fileMenu.addAction('Using NSMBLib' if HaveNSMBLib else 'Not using NSMBLib')
@@ -3190,9 +3539,12 @@ class MainWindow(QtWidgets.QMainWindow):
         taskMenu.addAction("Clear Object Data", self.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
 
         animMenu = self.menuBar().addMenu("&Animations")
-        #animMenu.addAction("Export all framesheets", self.exportAllFramesheets, QtGui.QKeySequence('Ctrl+F'))
-        animMenu.addAction("Export all framesheets as Tpl", self.exportAllFramesheetsAsTpl, QtGui.QKeySequence('Ctrl+Shift+F'))
+        animMenu.addAction("Export all framesheets as .tpl...", self.exportAllFramesheetsAsTpl, QtGui.QKeySequence('Ctrl+F'))
 
+        otherMenu = self.menuBar().addMenu("&Other")
+        otherMenu.addAction("Create a \"readme\" file")
+        otherMenu.addSeparator()
+        otherMenu.addAction("Help")
 
     def setSlot(self):
         global Tileset
@@ -3303,17 +3655,49 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.tileWidget)
         self.container.setLayout(layout)
 
+        # Third Tab
         self.framesheetContainer = QtWidgets.QWidget()
         animationLayout = QtWidgets.QVBoxLayout()
         animationLayout.addWidget(self.framesheetList)
         animationLayout.addWidget(self.framesheetWidget)
         self.framesheetContainer.setLayout(animationLayout)
 
+        # Fourth Tab
+        self.frameEditor = QtWidgets.QWidget()
+        frameEditorLayout = QtWidgets.QVBoxLayout()                        #-> new class -> each column 32x32 frame with input field; reverse button at the top
+                                                                           #-> auto update switched tileset slot (Pa0-3)
+                                                                           #-> auto search for info in AnimTile.bin; save with ctrl+s
+                                                                           #-> exxport and import bin/txt; buttons at the buttom
+                                                                           #-> export >>>new<<< AnimTiles info of this Tileset as text; button at the buttom
+                                                                           #-> import AnimTiles info of this Tileset only as text; button at the buttom
+                                                                               #-> add to AnimTiles.bin export
+                                                                           #-> fill missing AnimTiles info automatically (1,1,1,1,1,1,1,...)
+        frameEditorWidget = frameEditorOverlord()
+        frameEditorLayout.addWidget(frameEditorWidget)
+        self.frameEditor.setLayout(frameEditorLayout)
+
+
+
+
+
+
+
+        # Fifth Tab
+        self.animTilesEditor = QtWidgets.QWidget()
+        animTilesWidget = animTilesOverlord()
+        animTilesLayout = QtWidgets.QVBoxLayout()                                                 #QtWidgets.QScrollArea()
+        animTilesLayout.addWidget(animTilesWidget)
+        self.animTilesEditor.setLayout(animTilesLayout)
+
+
+
+
         # Sets the Tabs
         self.tabWidget.addTab(self.paletteWidget, 'Behaviours')
         self.tabWidget.addTab(self.container, 'Objects')
-        
-        self.tabWidget.addTab(self.framesheetContainer, 'Animations')
+        self.tabWidget.addTab(self.framesheetContainer, 'Framesheets')
+        self.tabWidget.addTab(self.frameEditor, 'Frame Editor')
+        self.tabWidget.addTab(self.animTilesEditor, 'AnimTiles')
 
         # Connections do things!
         self.tileDisplay.clicked.connect(self.paintFormat)
