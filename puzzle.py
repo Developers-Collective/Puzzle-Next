@@ -2,6 +2,7 @@
 
 import archive
 import lz77
+from QCodeEditor import QCodeEditor
 import os, os.path
 import struct
 import sys
@@ -164,7 +165,7 @@ def readString(data, pos):
     return s
 
 class AnimTilesClass():
-    '''Contains Animation data.'''
+    '''Contains animation data'''
 
     def __init__(self):
         '''Constructor'''
@@ -176,156 +177,25 @@ class AnimTilesClass():
         self.animations.append(animation)
 
 
-    def removeAnimation(self, animation):
-        '''Removes an animation'''
-        #self.texnames.remove(texname)
-        print("unfinished")
-
     def clear(self):
         '''Clears everything for a new file'''
         self.animations = []
 
 
-    def addFromBinFile(self, bin):
-        with open(bin, 'rb') as f:
-            bin_ = f.read()
+#############################################################################################
+###################################### RandTiles Class ######################################
 
-        header = struct.unpack('>4sI', bin_[:8])
+class RandTilesClass():
+    '''Contains randomisation data'''
 
-        if header[0] != b'NWRa':
-            print("Error: invalid .bin file: file magic was not NWRa")
-
-        pos = 8
-        for i in range(header[1]):
-            # read entry
-            entry = struct.unpack('>HHHBB', bin_[pos : pos + 8])
-            pos += 8
-
-            # extract name
-            name = readString(bin_, entry[0])
-
-            # extract delays
-            delays = readString(bin_, entry[1])
-            delays = struct.unpack('>' + str(len(delays)) + 'B', bytes(delays, 'ascii'))
-            delays = list(map(int, delays))
-
-            # tilenum
-            tilenum = int(entry[2])
-            tileset = int(entry[3])
-            reverse = int(entry[4]) == 1
-
-            self.addAnimation({
-                'texname': name,
-                'framedelays': delays,
-                'tilenum': tilenum,
-                'tileset': tileset,
-                'reverse': reverse
-            })
-
-        # write output file
-        properties = ['texname', 'framedelays', 'tilenum', 'tileset', 'reverse']
-        out = ""
-        for animation in self.animations:
-            for prop in properties:
-                if prop == 'reverse':
-                    if animation[prop] == True:
-                        out += 'reverse = yes\n'
-                    continue
-
-                elif prop == 'framedelays':
-                    s = ', '.join(map(str, animation[prop]))
-                else:
-                    s = str(animation[prop])
-
-                out += "%s = %s\n" % (str(prop), s)
-
-            out += '\nend tile\n\n'
-
-        # remove 1 extra newline
-        out = out[:-1]
-        return out
+    def __init__(self):
+        '''Constructor'''
+        self.sections = []
 
 
-    def encode(self):
-        out = struct.pack('>4sI', b'NWRa', len(self.animations))
-
-        # first off, calculate a length for the main file
-        # so we can build the string table easily
-        size = len(out)
-        size += len(self.animations) * 8
-
-        strTable = ''
-        strOffset = size + len(strTable)
-
-        # now, write tiles
-        for animation in self.animations:
-            # encode the name
-            texNameOffset = strOffset
-
-            # there's only room for 56 characters
-            name = animation['texname']
-            if len(name) > 56:
-                name = name[:56]
-
-            strTable += name + '\0'
-            strOffset += len(name) + 1
-
-            # encode the delays
-            frameDelays = ''
-            for delay in animation['framedelays']:
-                frameDelays += chr(delay)
-
-            frameDelayOffset = strOffset
-            strOffset += len(frameDelays) + 1
-            strTable += frameDelays + '\0'
-
-            tileNum = animation['tilenum']
-            tilesetNum = animation['tileset']
-
-            if 'reverse' in animation and animation['reverse']:
-                reverse = 1
-            else:
-                reverse = 0
-
-            out += struct.pack('>HHHBB', texNameOffset, frameDelayOffset, tileNum, tilesetNum, reverse)
-
-        # and save the result
-        #print(strTable)
-        self.bin = out + bytes(strTable, 'utf8')
-
-
-    def addFromText(self, lines):
-        # strip whitespace
-        proc = []
-        for line in lines:
-            proc.append(line.strip())
-
-        # self.animations is an array of dicts
-        animations = []
-        currentAnimation = {}
-
-        # parse the file
-        for line in proc:
-            if line == 'end tile':
-                animations.append(currentAnimation)
-                currentAnimation = {}
-            elif line != '':
-                s = line.split('=', 2)
-                name = s[0].strip()
-                val = s[1].strip()
-
-                if name == 'framedelays': val = list(map(int, val.split(',')))
-                if name == 'tilenum': val = int(val, 0)
-                if name == 'tileset': val = int(val, 0)
-                if name == 'reverse':
-                    if val == 'yes':
-                        val = True
-                    else:
-                        val = False
-
-                currentAnimation[name] = val
-
-        self.animations.extend(animations)
+    def clear(self):
+        '''Clears everything for a new file'''
+        self.sections = []
 
 
 #############################################################################################
@@ -764,6 +634,8 @@ class InfoBox(QtWidgets.QWidget):
         self.screenshotLayout = QtWidgets.QVBoxLayout()
         self.screenshotWindow.setLayout(self.screenshotLayout)
         self.screenshotWindow.setWindowTitle("View enlarged screenshot")
+        self.screenshotWindow.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.screenshotWindow.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
         self.label = QtWidgets.QLabel()
         self.screenshotLayout.addWidget(self.label)
         def showScreenshot():
@@ -771,16 +643,15 @@ class InfoBox(QtWidgets.QWidget):
             self.image = window.tileDisplay.grab()
             self.image = self.image.scaled(self.image.width()*3, self.image.height()*3)
             self.label.setPixmap(self.image)
+            self.screenshotWindow.setFixedSize(self.image.width()+50, self.image.height()+50)
             self.screenshotWindow.show()
-        def hideScreenshot():
-            self.screenshotWindow.hide()
 
         self.screenshotButton = QtWidgets.QPushButton('View enlarged screenshot')
-        self.screenshotButton.pressed.connect(showScreenshot)
-        #self.screenshotButton.released.connect(hideScreenshot)
+        self.screenshotButton.released.connect(showScreenshot)
 
         self.coreInfo = QtWidgets.QLabel()
-        self.propertyInfo = QtWidgets.QLabel('             \n\n\n\n\n')
+        self.propertyInfo = QtWidgets.QLabel('Properties:\nNone             \n\n\n\n\n')
+        self.propertyInfo.setWordWrap(True)
         self.terrainInfo = QtWidgets.QLabel()
         self.paramInfo = QtWidgets.QLabel()
 
@@ -792,11 +663,7 @@ class InfoBox(QtWidgets.QWidget):
         self.terrainInfo.setFont(Font)
         self.paramInfo.setFont(Font)
 
-
-        self.LabelB = QtWidgets.QLabel('Properties:')
-        self.LabelB.setFont(Font)
-
-        self.hexdata = QtWidgets.QLabel('Hex Data:\n0x00 0x00 0x00 0x00\n0x00 0x00 0x00 0x00')
+        self.hexdata = QtWidgets.QLabel('Hex Data: 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00')
         self.hexdata.setFont(Font)
 
 
@@ -831,17 +698,20 @@ class InfoBox(QtWidgets.QWidget):
 
         imageLayout.setContentsMargins(0,4,4,4)
         imageLayout.addLayout(coreLayout)
-        imageLayout.addLayout(terrLayout)
-        imageLayout.addLayout(paramLayout)
         imageLayout.addStretch()
+        imageLayout.addLayout(terrLayout)
+        imageLayout.addStretch()
+        imageLayout.addLayout(paramLayout)
 
         self.imageBox.setLayout(imageLayout)
+        self.setMinimumWidth(800)
+        #self.setMaximumWidth(800)
 
         superLayout.addWidget(self.imageBox, 0, 0)
-        superLayout.addWidget(self.collisionOverlay, 1, 0)
-        superLayout.addWidget(self.screenshotButton, 1, 1)
-        infoLayout.addRow(self.LabelB, self.propertyInfo)
-        infoLayout.addRow(self.hexdata)
+        superLayout.addWidget(self.hexdata, 1, 0, 1, 2, Qt.AlignCenter)
+        superLayout.addWidget(self.collisionOverlay, 2, 0)
+        superLayout.addWidget(self.screenshotButton, 2, 1, Qt.AlignRight)
+        infoLayout.addRow(self.propertyInfo)
         superLayout.addLayout(infoLayout, 0, 1, 2, 1)
         self.setLayout(superLayout)
 
@@ -862,7 +732,6 @@ class framesheetList(QtWidgets.QListView):
         self.setBackgroundRole(QtGui.QPalette.BrightText)
         self.setWrapping(False)
         self.setMinimumHeight(512)
-        #self.setMaximumHeight(400)
 
     def setHeight(self):
         height = getFramesheetGridSize()
@@ -885,12 +754,15 @@ def SetupFramesheetModel(self, animdata):
     global Tileset
     self.framesheetList.setHeight()
     self.framesheetmodel.clear()
+    self.frames = {}
+    frames = []
 
     count = 0
     for key in list(animdata.keys()):
         height = len(animdata[key])//64
-        
+
         image = QtGui.QImage(32, height, QtGui.QImage.Format_ARGB32)
+        frame = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32)
 
         bytes = animdata[key]
         bits = ''.join(format(byte, '08b') for byte in bytes)
@@ -900,10 +772,13 @@ def SetupFramesheetModel(self, animdata):
         XBlock = 0
         YBlock = 0
 
+        frames = []
+
         for i in range(0, len(bits), 16):
             color = RGB4A3LUT[int(bits[i:i+16], 2)]
 
             image.setPixel(Xoffset+XBlock, Yoffset+YBlock, color)
+            frame.setPixel(Xoffset+XBlock, (Yoffset+YBlock)%32, color)
 
             XBlock += 1
             if XBlock >= 4:
@@ -915,6 +790,11 @@ def SetupFramesheetModel(self, animdata):
                     if Xoffset >= 32:
                         Xoffset = 0
                         Yoffset += 4
+                        if (Yoffset+YBlock)%32 == 0 and not (Yoffset+YBlock) == 0:
+                            frames.append(QtGui.QPixmap.fromImage(frame))
+                            frame = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32)
+
+        self.frames[key] = frames
 
         tex = QtGui.QPixmap.fromImage(image)
 
@@ -1010,21 +890,21 @@ class framesheetOverlord(QtWidgets.QWidget):
         '''Opens an framesheet from png.'''
 
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Open framesheet", '', "Image Files (*.png)")[0]
-        if not path: return
+        if not path: return (None, None)
 
         framesheet = QtGui.QPixmap()
         if not framesheet.load(path):
             QtWidgets.QMessageBox.warning(self, "Open framesheet",
                     "The framesheet file could not be loaded.",
                     QtWidgets.QMessageBox.Cancel)
-            return
+            return (None, None)
 
         if forAdding and framesheet.width() != 32 or framesheet.height() % 32 != 0:
             QtWidgets.QMessageBox.warning(self, "Open framesheet",
                     "The framesheet has incorrect dimensions. "
                     "Needed sizes: 32 pixel width and a multiple of 32 height.",
                     QtWidgets.QMessageBox.Cancel)
-            return
+            return (None, None)
 
         return (framesheet, path)
 
@@ -1035,7 +915,8 @@ class framesheetOverlord(QtWidgets.QWidget):
         #Tileset.addObject()
 
         framesheet, path = self.openFs()
-        if not framesheet: return
+        if framesheet is None: return
+        print(framesheet)
         base = os.path.basename(path)
         name = os.path.splitext(base)[0]
 
@@ -1058,6 +939,12 @@ class framesheetOverlord(QtWidgets.QWidget):
         data = RGB4A3FramesheetEncode(image)
         Tileset.animdata["BG_tex/{0}.bin".format(name)] = data
 
+        frames = []
+        for y in range(0, len(data)//2048):
+            frame = framesheet.copy(0, 32*y, 32, 32)
+            frames.append(frame)
+        window.frames["BG_tex/{0}.bin".format(name)] = frames
+
         window.framesheetmodel.appendRow(QtGui.QStandardItem(QtGui.QIcon(framesheet), '{0}'.format(name)))
         index = window.framesheetList.currentIndex()
         window.framesheetList.setCurrentIndex(index)
@@ -1078,6 +965,7 @@ class framesheetOverlord(QtWidgets.QWidget):
 
         name = window.framesheetmodel.itemFromIndex(index).text()
         Tileset.animdata.pop("BG_tex/{0}.bin".format(name), None)
+        window.frames.pop("BG_tex/{0}.bin".format(name), None)
 
         window.framesheetmodel.removeRow(index.row())
 
@@ -1098,7 +986,9 @@ class framesheetOverlord(QtWidgets.QWidget):
 
         name = window.framesheetmodel.itemFromIndex(index).text()
         iconSize = window.framesheetmodel.itemFromIndex(index).icon().availableSizes()[0]
-        framesheet = self.openFs(False)[0]
+        framesheet, temp = self.openFs(False)
+
+        if framesheet is None: return
 
         if not framesheet.width() == iconSize.width() or not framesheet.height() == iconSize.height():
             QtWidgets.QMessageBox.warning(self, "Open framesheet",
@@ -1110,6 +1000,12 @@ class framesheetOverlord(QtWidgets.QWidget):
         image = framesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32);
         data = RGB4A3FramesheetEncode(image)
         Tileset.animdata["BG_tex/{0}.bin".format(name)] = data
+
+        frames = []
+        for y in range(0, len(data)//2048):
+            frame = framesheet.copy(0, 32*y, 32, 32)
+            frames.append(frame)
+        window.frames["BG_tex/{0}.bin".format(name)] = frames
 
         window.framesheetmodel.itemFromIndex(index).setIcon(QtGui.QIcon(framesheet))
 
@@ -1145,6 +1041,8 @@ class framesheetOverlord(QtWidgets.QWidget):
 
         Tileset.animdata["BG_tex/{0}.bin".format(name)] = Tileset.animdata.pop("BG_tex/{0}.bin".format(oldName))
 
+        window.frames["BG_tex/{0}.bin".format(name)] = window.frames.pop("BG_tex/{0}.bin".format(oldName))
+
         window.framesheetList.update()
         self.update()
 
@@ -1163,8 +1061,110 @@ class frameEditorOverlord(QtWidgets.QWidget):
         super(frameEditorOverlord, self).__init__()
 
         self.explanation = QtWidgets.QLabel('Click on a framesheet in the \"Framesheets\" tab')
-        self.table = QtWidgets.QTableView()
+        self.table = QtWidgets.QTableWidget(0, 2)
+        self.table.setHorizontalHeaderLabels(["Frames", "Delays"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+
+        #self.tilenumLabel = QtWidgets.QLabel("Tilenum (int):")
+        #self.tilenumLineEdit = QtWidgets.QLineEdit()
+        #self.tilenumLineEdit.setMaxLength(3)
+        #self.tilenumLineEdit.setValidator(QtGui.QIntValidator())
+        #self.tilenumLineEdit.setPlaceholderText("slot row column (hex)")
+        #self.tilenumLineEdit.setAlignment(Qt.AlignRight)
+
+
+
+
+        self.unsaved = None
+
+        self.coreType = QtWidgets.QGroupBox()
+        self.coreType.setTitle('Animation properties:')
+        self.coreWidgets = []
+        coreLayout = QtWidgets.QVBoxLayout()
+        self.rowA = QtWidgets.QHBoxLayout()
+        self.rowB = QtWidgets.QHBoxLayout()
+        self.rowC = QtWidgets.QHBoxLayout()
+        self.rowD = QtWidgets.QHBoxLayout()
+        self.rowE = QtWidgets.QHBoxLayout()
+        self.rowF = QtWidgets.QHBoxLayout()
+        self.rowG = QtWidgets.QHBoxLayout()
+
+        self.rowA.addWidget(QtWidgets.QLabel("Texname:"))
+        self.nameLabel = QtWidgets.QLabel("coin")
+        self.nameLabel.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        self.nameLabel.setAlignment(Qt.AlignRight)
+        self.rowB.addWidget(QtWidgets.QLabel("Frames:"))
+        self.delayLabel = QtWidgets.QLabel("5")
+        self.delayLabel.setAlignment(Qt.AlignRight)
+        self.rowC.addWidget(QtWidgets.QLabel("Tilenum:"))
+        self.tilenumLabel = QtWidgets.QLabel("test")
+        self.tilenumLabel.setAlignment(Qt.AlignRight)
+
+        self.spin1 = QtWidgets.QSpinBox()
+        self.spin1.setDisplayIntegerBase(16)
+        self.spin2 = QtWidgets.QSpinBox()
+        self.spin2.setDisplayIntegerBase(16)
+        self.spin3 = QtWidgets.QSpinBox()
+        self.spin3.setDisplayIntegerBase(16)
+        spinFont = self.spin1.font()
+        spinFont.setCapitalization(QtGui.QFont.AllUppercase)
+        self.spin1.setFont(spinFont)
+        self.spin2.setFont(spinFont)
+        self.spin3.setFont(spinFont)
+
+        self.spin1.valueChanged.connect(self.setTilenum)
+        self.spin2.valueChanged.connect(self.setTilenum)
+        self.spin3.valueChanged.connect(self.setTilenum)
+
         self.checkBox = QtWidgets.QCheckBox('Reverse playback direction')
+
+
+        self.rowA.addWidget(self.nameLabel, Qt.AlignRight)
+        self.rowB.addWidget(self.delayLabel)
+        self.rowC.addWidget(self.tilenumLabel)
+        self.rowD.addWidget(QtWidgets.QLabel("Slot:"))
+        self.rowD.addWidget(self.spin1)
+        self.rowE.addWidget(QtWidgets.QLabel("Row:"))
+        self.rowE.addWidget(self.spin2)
+        self.rowF.addWidget(QtWidgets.QLabel("Column:"))
+        self.rowF.addWidget(self.spin3)
+        self.rowG.addWidget(self.checkBox)
+
+        self.setupContainer()
+
+        coreLayout.insertStretch(0)
+        coreLayout.addLayout(self.rowA)
+        coreLayout.insertStretch(2)
+        coreLayout.addLayout(self.rowB)
+        coreLayout.insertStretch(4)
+        coreLayout.addLayout(self.rowC)
+        coreLayout.addLayout(self.rowD)
+        #coreLayout.insertStretch(5)
+        coreLayout.addLayout(self.rowE)
+        #coreLayout.insertStretch(7)
+        coreLayout.addLayout(self.rowF)
+        coreLayout.insertStretch(11)
+        coreLayout.addLayout(self.rowG)
+        coreLayout.setAlignment(Qt.AlignTop)
+        self.coreType.setLayout(coreLayout)
+        self.coreType.setStyleSheet("QGroupBox"
+                                    "{"
+                                    "margin-top: 15px;"
+                                    "border : 1px solid grey;"
+                                    "}"
+                                    "QGroupBox::title {"
+                                    "subcontrol-origin: margin;"
+                                    "left: 10px;"
+                                    "padding: 0px 0px 0px 0px;"
+                                    "}"
+                                    )
+
+
+
+
+
+
 
         self.importCurrent = QtWidgets.QPushButton('Import for current framesheet')
         self.importAll = QtWidgets.QPushButton('Import for all framesheets of Tileset')
@@ -1175,31 +1175,408 @@ class frameEditorOverlord(QtWidgets.QWidget):
 
         # Connections
         self.importCurrent.released.connect(self.importForCurrent)
-        #self.importAll.released.connect(self.removeFs)
-        #self.exportCurrent.released.connect(self.replaceFs)
-        #self.exportAll.released.connect(self.renameFs)
+        self.importAll.released.connect(self.importForAll)
+        self.exportCurrent.released.connect(self.exportForCurrent)
+        self.exportAll.released.connect(self.exportForAll)
 
 
 
         # Layout
         layout = QtWidgets.QGridLayout()
 
-        layout.addWidget(self.explanation, 0, 0, 1, 2)
+        layout.addWidget(self.explanation, 0, 0, 1, 4)
         layout.addWidget(self.table, 1, 0, 1, 2)
-        layout.addWidget(self.checkBox,2,0,1,2)
+        
+        layout.addWidget(self.coreType, 1, 2, 1, 2)
 
-        layout.addWidget(self.importCurrent, 3, 0, 1, 1)
-        layout.addWidget(self.importAll, 3, 1, 1, 1)
-        layout.addWidget(self.exportCurrent, 4, 0, 1, 1)
-        layout.addWidget(self.exportAll, 4, 1, 1, 1)
+        #layout.addWidget(self.tilenumLabel, 2, 2, 1, 1, Qt.AlignLeft)
+        #layout.addWidget(self.tilenumLineEdit, 2, 3, 1, 1, Qt.AlignRight)
+
+        layout.addWidget(self.importCurrent, 3, 0, 1, 2)
+        layout.addWidget(self.importAll, 3, 2, 1, 2)
+        layout.addWidget(self.exportCurrent, 4, 0, 1, 2)
+        layout.addWidget(self.exportAll, 4, 2, 1, 2)
+
+        layout.setRowMinimumHeight(1, 40)
+
+        self.setLayout(layout)
+
+    def setTilenum(self, val):
+        val = (self.spin1.value()<<8)+(self.spin2.value()<<4)+(self.spin3.value())
+        self.tilenumLabel.setText(str(val))
+
+
+    def setupContainer(self, data = None):
+        if data is None:
+            self.nameLabel.setText("")
+            self.delayLabel.setText("0")
+            self.tilenumLabel.setText("0")
+            self.spin1.setRange(0, 0)
+            self.spin2.setRange(0, 0)
+            self.spin3.setRange(0, 0)
+        else:
+            self.nameLabel.setText(data['texname'])
+            self.delayLabel.setText("{0}".format(len(data['framedelays'])))
+            self.spin1.setRange(0, 3)
+            self.spin2.setRange(0, 0xF)
+            self.spin3.setRange(0, 0xF)
+            self.spin1.setValue(data['tilenum']>>8&0xF)
+            self.spin2.setValue(data['tilenum']>>4&0xF)
+            self.spin3.setValue(data['tilenum']&0xF)
+            if 'reverse' in data:
+                self.checkBox.setChecked(data['reverse'])
+            else:
+                self.checkBox.setChecked(False)
+
+
+    def importForCurrent(self):
+        self.popup = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        self.btn1 = QtWidgets.QPushButton("Import from AnimTiles tab")
+        #self.btn1.released.connect(self.getItem)
+
+        self.btn2 = QtWidgets.QPushButton("Import from a .txt file")
+        #self.btn2.released.connect(self.gettext)
+
+        layout.addWidget(self.btn1,0,0,1,1)
+        layout.addWidget(self.btn2,0,1,1,1)
+
+        self.popup.setLayout(layout)
+        self.popup.setWindowTitle("Import for current framesheet")
+        self.popup.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.popup.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+        self.popup.show()
+
+
+    def importForAll(self):
+        self.popup = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        self.btn1 = QtWidgets.QPushButton("Import from AnimTiles tab")
+        #self.btn1.clicked.connect(self.getItem)
+
+        self.btn2 = QtWidgets.QPushButton("Import from a .txt file")
+        #self.btn2.clicked.connect(self.gettext)
+
+        layout.addWidget(self.btn1,0,0,1,1)
+        layout.addWidget(self.btn2,0,1,1,1)
+
+        self.popup.setLayout(layout)
+        self.popup.setWindowTitle("Import for all framesheets of Tileset")
+        self.popup.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.popup.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+        self.popup.show()
+
+
+    def exportForCurrent(self):
+        self.popup = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        self.btn1 = QtWidgets.QPushButton("Export to AnimTiles tab")
+        #self.btn1.clicked.connect(self.getItem)
+
+        self.btn2 = QtWidgets.QPushButton("Export to a .txt file")
+        #self.btn2.clicked.connect(self.gettext)
+
+        layout.addWidget(self.btn1,0,0,1,1)
+        layout.addWidget(self.btn2,0,1,1,1)
+
+        self.popup.setLayout(layout)
+        self.popup.setWindowTitle("Export for current framesheet")
+        self.popup.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.popup.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+        self.popup.show()
+
+
+    def exportForAll(self):
+        self.popup = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        self.btn1 = QtWidgets.QPushButton("Export to AnimTiles tab")
+        #self.btn1.clicked.connect(self.getItem)
+
+        self.btn2 = QtWidgets.QPushButton("Export to a .txt file")
+        #self.btn2.clicked.connect(self.gettext)
+
+        layout.addWidget(self.btn1,0,0,1,1)
+        layout.addWidget(self.btn2,0,1,1,1)
+
+        self.popup.setLayout(layout)
+        self.popup.setWindowTitle("Export for all framesheets of Tileset")
+        self.popup.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.popup.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+        self.popup.show()
+
+
+    def fromAnimTiles(self, texname):
+        global AnimTiles
+        global frameEditorData
+        frameEditorData.animations = getAllEntriesWithName(AnimTiles.animations, texname)
+
+
+    def setFramesheet(self, tabIndex):
+        if not tabIndex == 3:
+            try:
+                # save to unsaved if not everything is empty or sth?
+                print(self.table.cellWidget(0,1).value())
+            except:
+                print("Nothing here yet")
+            return
+
+        index = window.framesheetList.currentIndex()
+        if not index.isValid():
+            print(index)
+            return
+
+        texname = window.framesheetmodel.itemFromIndex(index).text()
+        #print(texname)
+        global AnimTiles
+        global frameEditorData
+
+        framenum = len(Tileset.animdata["BG_tex/{0}.bin".format(texname)])//2048
+        self.table.setRowCount(framenum)
+
+        for i, image in enumerate(window.frames["BG_tex/{0}.bin".format(texname)]):
+            self.label = QtWidgets.QLabel(self)
+            self.label.setPixmap(image)
+            self.label.setAlignment(Qt.AlignCenter)
+            self.table.setCellWidget(i,0, self.label)
+
+            self.spinBox = QtWidgets.QSpinBox(self)
+            self.spinBox.setRange(0, 99999)
+            self.spinBox.setStyleSheet( "QSpinBox"
+                                        "{"
+                                        "border : 0px solid black;"
+                                        "}"
+                                        )
+            self.table.setCellWidget(i,1, self.spinBox)
+
+
+        print(window.frames)
+        #print(framenum)
+
+        self.fromAnimTiles(texname)
+        if self.unsaved is None:
+            self.unsaved = getAllEntriesWithName(frameEditorData.animations, texname)
+
+        if not len(self.unsaved) == 0:
+            self.popup = QtWidgets.QWidget()
+            layout = QtWidgets.QGridLayout()
+            self.comboBox = QtWidgets.QComboBox()
+            #self.comboBox.addItems()                                                                                        #
+            
+            for dict in self.unsaved:
+                self.comboBox.addItem("Tilenum: {0}".format(dict['tilenum']))
+
+            self.comboBox.addItem("New ...")
+
+            self.btn1 = QtWidgets.QPushButton("Open")
+            
+            layout.addWidget(self.comboBox,0,0,1,1)
+            layout.addWidget(self.btn1,0,1,1,1)
+
+            self.popup.setLayout(layout)
+            self.popup.setWindowTitle("Select an entry!")
+            self.popup.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+            self.popup.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+            self.popup.show()
+
+            self.btn1.clicked.connect(self.setContents)
+
+            #animation)
+
+#if:
+    #setTableContents
+#else:
+    #new window -> list -> old ones + "new"
+
+    def setContents(self):
+        if self.unsaved:
+            self.popup.hide()
+            index = self.comboBox.currentIndex()
+            if index >= len(self.unsaved):
+                animation = self.unsaved[0].copy()
+                animation['tilenum'] = 0
+                animation['framedelays'] = [0] * len(animation['framedelays'])
+                if 'reverse' in animation:
+                    animation.pop('reverse')
+                self.unsaved.append(animation)
+                self.setupContainer(animation)
+            else:
+                animation = self.unsaved[index]
+                self.setupContainer(animation)
+                for i, delay in enumerate(animation['framedelays']):
+                    self.table.cellWidget(i,1).setValue(delay)
+
+
+    def setNewTableContents(self):
+        print("test")
+
+    def getComboBoxInfo(self):
+        print(" ")
+
+
+#############################################################################################
+#################################### randTiles Widget #######################################
+
+
+class randTilesOverlord(QtWidgets.QWidget):
+
+    def __init__(self):
+        super(randTilesOverlord, self).__init__()
+
+        self.searchText = QtWidgets.QLineEdit()
+        self.searchButton = QtWidgets.QPushButton('Search')
+
+        font = self.font()
+        self.text = QCodeEditor.QCodeEditor(SyntaxHighlighter=QCodeEditor.XMLHighlighter)
+        self.text.font = font
+
+        self.importBin = QtWidgets.QPushButton('Import from .bin')
+        self.importTxt = QtWidgets.QPushButton('Import from .txt')
+        self.exportBin = QtWidgets.QPushButton('Export to .bin')
+        self.exportTxt = QtWidgets.QPushButton('Export to .txt')
+
+
+        # Connections
+        self.importBin.released.connect(self.importFromBin)
+        self.importTxt.released.connect(self.importFromTxt)
+        self.exportBin.released.connect(self.exportToBin)
+        self.exportTxt.released.connect(self.exportToTxt)
+
+
+
+        # Layout
+        layout = QtWidgets.QGridLayout()
+
+        layout.addWidget(self.searchText, 0, 0, 1, 3)
+        layout.addWidget(self.searchButton, 0, 3, 1, 1)
+
+        layout.addWidget(self.text, 1, 0, 1, 4)
+
+        layout.addWidget(self.importBin, 2, 0, 1, 2)
+        layout.addWidget(self.importTxt, 2, 2, 1, 2)
+        layout.addWidget(self.exportBin, 3, 0, 1, 2)
+        layout.addWidget(self.exportTxt, 3, 2, 1, 2)
 
         layout.setRowMinimumHeight(1, 40)
 
         self.setLayout(layout)
 
 
-    def importForCurrent(self):
-        print("Nothing here yet ...")
+    def importFromBin(self):
+        global RandTiles
+        RandTiles.clear()
+
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open RandTiles .bin file", '', "RandTiles File (*.bin)")[0]
+        if not path: return
+
+        txt = addRandomisationsFromBinFile(RandTiles, path)
+
+        self.text.setPlainText(txt)
+
+
+    def importFromTxt(self):
+        global AnimTiles
+        AnimTiles.clear()
+
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .txt file", '', "AnimTiles File (*.txt)")[0]
+        if not path: return
+
+        with open(path, 'r') as file:
+            lines = file.readlines()
+
+        addAnimationsFromText(AnimTiles, lines)
+
+        with open(path, 'r') as file:
+            txt = file.read()
+
+        self.text.setPlainText(txt)
+
+
+    def exportToBin(self):
+        global AnimTiles
+
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .bin file', '', 'AnimTiles File (*.bin)')[0]
+        if not fn: return
+
+        encodeAnimTiles(AnimTiles)
+
+        with open(fn, 'wb') as f:
+            f.write(AnimTiles.bin)
+
+
+    def exportToTxt(self):
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', '', 'AnimTiles File (*.txt)')[0]
+        if not fn: return
+
+        with open(fn, 'w') as f:
+            f.write(self.text.toPlainText())
+
+
+#############################################################################################
+################################### RandTiles functions #####################################
+
+
+def addRandomisationsFromBinFile(dest, bin):
+
+    with open(bin, 'rb') as f:
+        bin_ = f.read()
+
+    header = struct.unpack('>4sI', bin_[:8])
+
+    if header[0] != b'NwRT':
+        print("Error: invalid .bin file: file magic was not NWRa")
+
+
+    pos = 8
+    for i in range(header[1]):
+        offset = struct.unpack('>I', bin_[pos : pos + 4])[0]
+        pos += 4
+        section = struct.unpack('>2I', bin_[offset : offset + 8])
+        nameListOffset = section[0]
+        nameCount = struct.unpack('>I', bin_[offset + nameListOffset : offset + 4 + nameListOffset])[0]
+        nameList = []
+        for j in range(nameCount):
+            nameOffset = struct.unpack('>I', bin_[offset + nameListOffset + 4 + 4*j : offset + nameListOffset + 8 + 4*j])[0]
+            end = bin_[offset + nameListOffset + nameOffset :]
+            name = str(struct.unpack('>' + str(len(end)) + 's', end)[0]).split('\\x00', 1)[0]
+            nameList.append(name[2:])
+
+        entries = []
+        entryCount = section[1]
+        for j in range(entryCount):
+            entry = struct.unpack('>BBBBI', bin_[offset + 8 + 8*j : offset + 16 + 8 * j])
+            count = entry[2]
+            tileNumOffset = entry[4]
+            tiles = list(struct.unpack('>' + str(count) + 'B', bin_[offset + 8 + 8*j + tileNumOffset : offset + 8 + 8*j + tileNumOffset + count]))
+            entries.append({'lowerBound' :  entry[0], 'upperBound' : entry[1], 'type' : entry[3] & 3, 'special' : entry[3] >> 2, 'tiles' : tiles})
+
+        dest.sections.append({'nameList' : nameList, 'entries' : entries})
+
+    types = ['none', 'horizontal', 'vertical', 'both']
+
+    out = '<tilesets>\n'
+    for section in dest.sections:
+        out += '    <group names="' + ', '.join(section['nameList']) + '">\n'
+        for entry in section['entries']:
+            line = '        <random '
+            if list(range(entry['lowerBound'], entry['upperBound'] + 1)) == entry['tiles']:
+                line += 'range="0x%X, 0x%X" ' % (entry['lowerBound'], entry['upperBound'])
+            #elif -> optimize xml
+            else:
+                if entry['lowerBound'] == entry['upperBound']:
+                    line += 'list="0x%X" ' % (entry['lowerBound'])
+                else:
+                    line += 'range="0x%X, 0x%X" ' % (entry['lowerBound'], entry['upperBound'])
+                tiles = ["0x%X" % tile for tile in entry['tiles']]
+                line += 'values="{}" '.format(', '.join(tiles))
+            line += 'type="{}"'.format(types[entry['type']])
+            line += '>\n'
+            out += line
+
+        out += '    </group>\n'
+
+    out += '</tilesets>'
+    return out
+
 
 #############################################################################################
 #################################### animTiles Widget #######################################
@@ -1254,7 +1631,7 @@ class animTilesOverlord(QtWidgets.QWidget):
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .bin file", '', "AnimTiles File (*.bin)")[0]
         if not path: return
 
-        txt = AnimTiles.addFromBinFile(path)
+        txt = addAnimationsFromBinFile(AnimTiles, path)
 
         self.text.setPlainText(txt)
 
@@ -1269,7 +1646,7 @@ class animTilesOverlord(QtWidgets.QWidget):
         with open(path, 'r') as file:
             lines = file.readlines()
 
-        AnimTiles.addFromText(lines)
+        addAnimationsFromText(AnimTiles, lines)
 
         with open(path, 'r') as file:
             txt = file.read()
@@ -1283,7 +1660,7 @@ class animTilesOverlord(QtWidgets.QWidget):
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .bin file', '', 'AnimTiles File (*.bin)')[0]
         if not fn: return
 
-        AnimTiles.encode()
+        encodeAnimTiles(AnimTiles)
 
         with open(fn, 'wb') as f:
             f.write(AnimTiles.bin)
@@ -1295,6 +1672,161 @@ class animTilesOverlord(QtWidgets.QWidget):
 
         with open(fn, 'w') as f:
             f.write(self.text.toPlainText())
+
+
+#############################################################################################
+################################### AnimTiles functions #####################################
+
+
+def addAnimationsFromBinFile(dest, bin):
+
+    with open(bin, 'rb') as f:
+        bin_ = f.read()
+
+    header = struct.unpack('>4sI', bin_[:8])
+
+    if header[0] != b'NWRa':
+        print("Error: invalid .bin file: file magic was not NWRa")
+
+    pos = 8
+    for i in range(header[1]):
+        # read entry
+        entry = struct.unpack('>HHHBB', bin_[pos : pos + 8])
+        pos += 8
+
+        # extract name
+        name = readString(bin_, entry[0])
+
+        # extract delays
+        delays = readString(bin_, entry[1])
+        delays = struct.unpack('>' + str(len(delays)) + 'B', bytes(delays, 'ascii'))
+        delays = list(map(int, delays))
+
+        # tilenum
+        tilenum = int(entry[2])
+        tileset = int(entry[3])
+        reverse = int(entry[4]) == 1
+
+        dest.addAnimation({
+            'texname': name,
+            'framedelays': delays,
+            'tilenum': tilenum,
+            'tileset': tileset,
+            'reverse': reverse
+        })
+
+    # write output file
+    properties = ['texname', 'framedelays', 'tilenum', 'tileset', 'reverse']
+    out = ""
+    for animation in dest.animations:
+        for prop in properties:
+            if prop == 'reverse':
+                if animation[prop] == True:
+                    out += 'reverse = yes\n'
+                continue
+
+            elif prop == 'framedelays':
+                s = ', '.join(map(str, animation[prop]))
+            else:
+                s = str(animation[prop])
+
+            out += "%s = %s\n" % (str(prop), s)
+
+        out += '\nend tile\n\n'
+
+    # remove 1 extra newline
+    out = out[:-1]
+    return out
+
+
+def encodeAnimTiles(dest):
+    out = struct.pack('>4sI', b'NWRa', len(dest.animations))
+
+    # first off, calculate a length for the main file
+    # so we can build the string table easily
+    size = len(out)
+    size += len(dest.animations) * 8
+
+    strTable = ''
+    strOffset = size + len(strTable)
+
+    # now, write tiles
+    for animation in dest.animations:
+        # encode the name
+        texNameOffset = strOffset
+
+        # there's only room for 56 characters
+        name = animation['texname']
+        if len(name) > 56:
+            name = name[:56]
+
+        strTable += name + '\0'
+        strOffset += len(name) + 1
+
+        # encode the delays
+        frameDelays = ''
+        for delay in animation['framedelays']:
+            frameDelays += chr(delay)
+
+        frameDelayOffset = strOffset
+        strOffset += len(frameDelays) + 1
+        strTable += frameDelays + '\0'
+
+        tileNum = animation['tilenum']
+        tilesetNum = animation['tileset']
+
+        if 'reverse' in animation and animation['reverse']:
+            reverse = 1
+        else:
+            reverse = 0
+
+        out += struct.pack('>HHHBB', texNameOffset, frameDelayOffset, tileNum, tilesetNum, reverse)
+
+    # and save the result
+    #print(strTable)
+    dest.bin = out + bytes(strTable, 'utf8')
+
+
+def addAnimationsFromText(dest, lines):
+    # strip whitespace
+    proc = []
+    for line in lines:
+        proc.append(line.strip())
+
+    # dest.animations is an array of dicts
+    animations = []
+    currentAnimation = {}
+
+    # parse the file
+    for line in proc:
+        if line == 'end tile':
+            animations.append(currentAnimation)
+            currentAnimation = {}
+        elif line != '':
+            s = line.split('=', 2)
+            name = s[0].strip()
+            val = s[1].strip()
+
+            if name == 'framedelays': val = list(map(int, val.split(',')))
+            if name == 'tilenum': val = int(val, 0)
+            if name == 'tileset': val = int(val, 0)
+            if name == 'reverse':
+                if val == 'yes':
+                    val = True
+                else:
+                    val = False
+
+            currentAnimation[name] = val
+
+    dest.animations.extend(animations)
+
+
+def getAllEntriesWithName(animations, name):
+    results = []
+    for animation in animations:
+        if animation['texname'] == name:
+            results.append(animation)
+    return results
 
 
 #############################################################################################
@@ -1361,7 +1893,7 @@ class displayWidget(QtWidgets.QListView):
 
         self.setMinimumWidth(424)
         self.setMaximumWidth(444)
-        self.setMinimumHeight(404)
+        self.setMaximumHeight(444)
         self.setDragEnabled(True)
         self.setViewMode(QtWidgets.QListView.IconMode)
         self.setIconSize(QtCore.QSize(24,24))
@@ -2922,6 +3454,12 @@ class MainWindow(QtWidgets.QMainWindow):
         global AnimTiles
         AnimTiles = AnimTilesClass()
 
+        global frameEditorData
+        frameEditorData = AnimTilesClass()
+
+        global RandTiles
+        RandTiles = RandTilesClass()
+
         self.name = ''
 
         self.setupMenus()
@@ -2971,9 +3509,17 @@ class MainWindow(QtWidgets.QMainWindow):
         Tileset.clear()
         Tileset = TilesetClass()
 
-        global AnimTiles
-        AnimTiles.clear()
-        AnimTiles = AnimTilesClass()
+        #global AnimTiles
+        #AnimTiles.clear()
+        #AnimTiles = AnimTilesClass()
+
+        #global frameEditorData
+        #frameEditorData.clear()
+        #frameEditorData = AnimTilesClass()
+
+        #global RandTiles
+        #RandTiles.clear()
+        #RandTiles = RandTilesClass()
 
         EmptyPix = QtGui.QPixmap(24, 24)
         EmptyPix.fill(Qt.black)
@@ -3138,6 +3684,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setuptile()
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
         SetupFramesheetModel(self, Tileset.animdata)
+
+        self.frameEditor.table.clearContents()
+        self.frameEditor.table.setRowCount(0)
+        modelindex = self.framesheetList.currentIndex().sibling(-1, 0)
+        self.framesheetList.setCurrentIndex(modelindex)
 
         self.name = path
 
@@ -3589,6 +4140,7 @@ class MainWindow(QtWidgets.QMainWindow):
         '''Clears the object data'''
 
         Tileset.objects = []
+        Tileset.animdata = {}
 
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
         SetupFramesheetModel(self, Tileset.animdata)
@@ -3639,11 +4191,13 @@ class MainWindow(QtWidgets.QMainWindow):
         # Framesheet List
         self.framesheetList = framesheetList()
         self.framesheetmodel = QtGui.QStandardItemModel()
+        self.frames = {}
         SetupFramesheetModel(self, Tileset.animdata)
         self.framesheetList.setModel(self.framesheetmodel)
 
         # Creates the Tab Widget for behaviours and objects
         self.tabWidget = QtWidgets.QTabWidget()
+        self.tabWidget.setUsesScrollButtons(False)
         self.framesheetWidget = framesheetOverlord()
         self.tileWidget = tileOverlord()
         self.paletteWidget = paletteWidget(self)
@@ -3663,18 +4217,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.framesheetContainer.setLayout(animationLayout)
 
         # Fourth Tab
-        self.frameEditor = QtWidgets.QWidget()
-        frameEditorLayout = QtWidgets.QVBoxLayout()                        #-> new class -> each column 32x32 frame with input field; reverse button at the top
-                                                                           #-> auto update switched tileset slot (Pa0-3)
-                                                                           #-> auto search for info in AnimTile.bin; save with ctrl+s
-                                                                           #-> exxport and import bin/txt; buttons at the buttom
-                                                                           #-> export >>>new<<< AnimTiles info of this Tileset as text; button at the buttom
-                                                                           #-> import AnimTiles info of this Tileset only as text; button at the buttom
-                                                                               #-> add to AnimTiles.bin export
-                                                                           #-> fill missing AnimTiles info automatically (1,1,1,1,1,1,1,...)
-        frameEditorWidget = frameEditorOverlord()
-        frameEditorLayout.addWidget(frameEditorWidget)
-        self.frameEditor.setLayout(frameEditorLayout)
+        self.frameEditor = frameEditorOverlord()
 
 
 
@@ -3683,31 +4226,32 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         # Fifth Tab
-        self.animTilesEditor = QtWidgets.QWidget()
-        animTilesWidget = animTilesOverlord()
-        animTilesLayout = QtWidgets.QVBoxLayout()                                                 #QtWidgets.QScrollArea()
-        animTilesLayout.addWidget(animTilesWidget)
-        self.animTilesEditor.setLayout(animTilesLayout)
+        self.animTilesEditor = animTilesOverlord()
 
 
+        #Sixth Tab
+        self.randTilesEditor = randTilesOverlord()
 
 
         # Sets the Tabs
         self.tabWidget.addTab(self.paletteWidget, 'Behaviours')
         self.tabWidget.addTab(self.container, 'Objects')
         self.tabWidget.addTab(self.framesheetContainer, 'Framesheets')
-        self.tabWidget.addTab(self.frameEditor, 'Frame Editor')
+        self.tabWidget.addTab(self.frameEditor, 'Animation Editor')
         self.tabWidget.addTab(self.animTilesEditor, 'AnimTiles')
+        self.tabWidget.addTab(self.randTilesEditor, 'RandTiles')
 
         # Connections do things!
         self.tileDisplay.clicked.connect(self.paintFormat)
         self.tileDisplay.mouseMoved.connect(self.updateInfo)
         self.objectList.clicked.connect(self.tileWidget.setObject)
 
+        self.tabWidget.tabBarClicked.connect(self.frameEditor.setFramesheet)
+
         # Layout
-        frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 1)
-        frameLayout.addWidget(self.tileDisplay, 1, 0)
-        frameLayout.addWidget(self.tabWidget, 0, 1, 2, 1)
+        frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 3)
+        frameLayout.addWidget(self.tileDisplay, 1, 1)
+        frameLayout.addWidget(self.tabWidget, 0, 3, 2, 3)
         self.setCentralWidget(frame)
 
 
@@ -3788,11 +4332,11 @@ class MainWindow(QtWidgets.QMainWindow):
         info.parameterImage.setPixmap(parameter[1].pixmap(24,24))
 
         info.coreInfo.setText(palette.coreTypes[coreType][0])
-        info.propertyInfo.setText(propertyText)
+        info.propertyInfo.setText("Properties:\n{0}".format(propertyText))
         info.terrainInfo.setText(palette.terrainTypes[curTile.byte5][0])
         info.paramInfo.setText(parameter[0])
 
-        info.hexdata.setText('Hex Data:\n{0} {1} {2} {3}\n{4} {5} {6} {7}'.format(
+        info.hexdata.setText('Hex Data: {0} {1} {2} {3} {4} {5} {6} {7}'.format(
                                 hex(curTile.byte0), hex(curTile.byte1), hex(curTile.byte2), hex(curTile.byte3),
                                 hex(curTile.byte4), hex(curTile.byte5), hex(curTile.byte6), hex(curTile.byte7)))
 
