@@ -6,6 +6,7 @@ from QCodeEditor import QCodeEditor
 import os, os.path
 import struct
 import sys
+from xml.etree import ElementTree as etree
 
 from ctypes import create_string_buffer
 try:
@@ -630,20 +631,14 @@ class InfoBox(QtWidgets.QWidget):
         self.collisionOverlay = QtWidgets.QCheckBox('Overlay Collision')
         self.collisionOverlay.clicked.connect(updateAllTiles)
 
-        self.screenshotWindow = QtWidgets.QWidget()
-        self.screenshotLayout = QtWidgets.QVBoxLayout()
-        self.screenshotWindow.setLayout(self.screenshotLayout)
-        self.screenshotWindow.setWindowTitle("View enlarged screenshot")
-        self.screenshotWindow.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
-        self.screenshotWindow.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
-        self.label = QtWidgets.QLabel()
-        self.screenshotLayout.addWidget(self.label)
+        class QScreenshot(QtWidgets.QSplashScreen):
+            def __init__(self, screenshot):
+                super().__init__(screenshot)
+
         def showScreenshot():
-            #fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
             self.image = window.tileDisplay.grab()
             self.image = self.image.scaled(self.image.width()*3, self.image.height()*3)
-            self.label.setPixmap(self.image)
-            self.screenshotWindow.setFixedSize(self.image.width()+50, self.image.height()+50)
+            self.screenshotWindow = QScreenshot(self.image)
             self.screenshotWindow.show()
 
         self.screenshotButton = QtWidgets.QPushButton('View enlarged screenshot')
@@ -1418,10 +1413,13 @@ class frameEditorOverlord(QtWidgets.QWidget):
 
 
 class randTilesOverlord(QtWidgets.QWidget):
-
+    global RandTiles
+    
     def __init__(self):
         super(randTilesOverlord, self).__init__()
-
+        
+        self.isOpeningFile = False
+        
         self.searchText = QtWidgets.QLineEdit()
         self.searchButton = QtWidgets.QPushButton('Search')
 
@@ -1430,18 +1428,19 @@ class randTilesOverlord(QtWidgets.QWidget):
         self.text.font = font
 
         self.importBin = QtWidgets.QPushButton('Import from .bin')
-        self.importTxt = QtWidgets.QPushButton('Import from .txt')
+        self.importXml = QtWidgets.QPushButton('Import from .xml')
         self.exportBin = QtWidgets.QPushButton('Export to .bin')
-        self.exportTxt = QtWidgets.QPushButton('Export to .txt')
+        self.exportXml = QtWidgets.QPushButton('Export to .xml')
 
+        self.exceptionLabel = QtWidgets.QLabel('Empty ...')
 
         # Connections
         self.importBin.released.connect(self.importFromBin)
-        self.importTxt.released.connect(self.importFromTxt)
+        self.importXml.released.connect(self.importFromXml)
         self.exportBin.released.connect(self.exportToBin)
-        self.exportTxt.released.connect(self.exportToTxt)
+        self.exportXml.released.connect(self.exportToXml)
 
-
+        self.text.textChanged.connect(self.updateAfterEdit)
 
         # Layout
         layout = QtWidgets.QGridLayout()
@@ -1451,10 +1450,12 @@ class randTilesOverlord(QtWidgets.QWidget):
 
         layout.addWidget(self.text, 1, 0, 1, 4)
 
-        layout.addWidget(self.importBin, 2, 0, 1, 2)
-        layout.addWidget(self.importTxt, 2, 2, 1, 2)
-        layout.addWidget(self.exportBin, 3, 0, 1, 2)
-        layout.addWidget(self.exportTxt, 3, 2, 1, 2)
+        layout.addWidget(self.importBin, 2, 0, 1, 1)
+        layout.addWidget(self.importXml, 2, 1, 1, 1)
+        layout.addWidget(self.exportBin, 2, 2, 1, 1)
+        layout.addWidget(self.exportXml, 2, 3, 1, 1)
+        
+        layout.addWidget(self.exceptionLabel, 3, 0, 1, 4)
 
         layout.setRowMinimumHeight(1, 40)
 
@@ -1462,49 +1463,64 @@ class randTilesOverlord(QtWidgets.QWidget):
 
 
     def importFromBin(self):
-        global RandTiles
         RandTiles.clear()
+
+        self.isOpeningFile = True
 
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Open RandTiles .bin file", '', "RandTiles File (*.bin)")[0]
         if not path: return
 
-        txt = addRandomisationsFromBinFile(RandTiles, path)
+        try:
+            xml = addRandomisationsFromBinFile(RandTiles, path)
+        except Exception as e:
+            self.exceptionLabel.setText('Exception: {}'.format(str(e)))
+            return
+        
+        self.text.setPlainText(xml)
 
-        self.text.setPlainText(txt)
 
+    def importFromXml(self):
+        self.isOpeningFile = True
 
-    def importFromTxt(self):
-        global AnimTiles
-        AnimTiles.clear()
-
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .txt file", '', "AnimTiles File (*.txt)")[0]
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open RandTiles .xml file", '', "RandTiles File (*.xml)")[0]
         if not path: return
 
         with open(path, 'r') as file:
-            lines = file.readlines()
+            xml = file.read()
+        
+        try:
+            addRandomisationsFromXml(RandTiles, xml)
+        except Exception as e:
+            self.exceptionLabel.setText('Exception: {}'.format(str(e)))
+            return
 
-        addAnimationsFromText(AnimTiles, lines)
+        self.text.setPlainText(xml)
 
-        with open(path, 'r') as file:
-            txt = file.read()
 
-        self.text.setPlainText(txt)
-
+    def updateAfterEdit(self):
+        if self.isOpeningFile:
+            self.isOpeningFile = False
+        else:
+            try:
+                addRandomisationsFromXml(RandTiles, self.text.toPlainText())
+                labelMessage = 'Current xml is valid!'
+            except Exception as e:
+                labelMessage = 'Exception: {}'.format(str(e))
+                
+            self.exceptionLabel.setText(labelMessage)
 
     def exportToBin(self):
-        global AnimTiles
-
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .bin file', '', 'AnimTiles File (*.bin)')[0]
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save RandTiles .bin file', '', 'RandTiles File (*.bin)')[0]
         if not fn: return
 
-        encodeAnimTiles(AnimTiles)
+        encodeRandTiles(RandTiles)
 
         with open(fn, 'wb') as f:
-            f.write(AnimTiles.bin)
+            f.write(RandTiles.bin)
 
 
-    def exportToTxt(self):
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', '', 'AnimTiles File (*.txt)')[0]
+    def exportToXml(self):
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save RandTiles .xml file', '', 'RandTiles File (*.xml)')[0]
         if not fn: return
 
         with open(fn, 'w') as f:
@@ -1516,15 +1532,13 @@ class randTilesOverlord(QtWidgets.QWidget):
 
 
 def addRandomisationsFromBinFile(dest, bin):
-
     with open(bin, 'rb') as f:
         bin_ = f.read()
 
     header = struct.unpack('>4sI', bin_[:8])
 
     if header[0] != b'NwRT':
-        print("Error: invalid .bin file: file magic was not NWRa")
-
+        raise ValueError("Invalid .bin file: file magic was not NwRT")
 
     pos = 8
     for i in range(header[1]):
@@ -1568,14 +1582,218 @@ def addRandomisationsFromBinFile(dest, bin):
                     line += 'range="0x%X, 0x%X" ' % (entry['lowerBound'], entry['upperBound'])
                 tiles = ["0x%X" % tile for tile in entry['tiles']]
                 line += 'values="{}" '.format(', '.join(tiles))
-            line += 'type="{}"'.format(types[entry['type']])
-            line += '>\n'
+            line += 'direction="{}"'.format(types[entry['type']])
+            line += ' />\n'
             out += line
 
         out += '    </group>\n'
 
     out += '</tilesets>'
     return out
+
+def randomToEntry(entries, var, numbers, direction, special):
+    if isinstance(var, range):
+        # Regular handling
+        if numbers is None:
+            numbers = var
+        entries.append({'lowerBound' :  min(var), 'upperBound' : max(var), 'type' : direction , 'special' : special, 'tiles' : list(numbers)})
+    elif isinstance(var, int):
+        # One number
+        randomToEntry(entries, range(var, var+1), numbers, direction, special)
+    elif isinstance(var, list):
+        # A list
+        if numbers is None:
+            numbers = var
+        for r in var:
+            randomToEntry(entries, r, numbers, direction, special)
+
+def addRandomisationsFromXml(dest, xml):
+    root = etree.fromstring(xml)
+    
+    sections = []
+    for group in root:
+        nameList = []
+        for name in group.attrib['names'].split(","):
+            nameList.append(name.strip())
+        
+        entries = []
+        for random in group:
+            entry = {}
+            if 'name' in random.attrib:
+                name = random.attrib['name']
+                if name == 'regular-terrain':
+                    entries.append({'lowerBound': 16, 'upperBound': 16, 'type': 2, 'special': 0, 'tiles': [16, 32, 48, 64]})
+                    entries.append({'lowerBound': 32, 'upperBound': 32, 'type': 2, 'special': 0, 'tiles': [16, 32, 48, 64]})
+                    entries.append({'lowerBound': 48, 'upperBound': 48, 'type': 2, 'special': 0, 'tiles': [16, 32, 48, 64]})
+                    entries.append({'lowerBound': 64, 'upperBound': 64, 'type': 2, 'special': 0, 'tiles': [16, 32, 48, 64]})
+                    entries.append({'lowerBound': 17, 'upperBound': 17, 'type': 2, 'special': 0, 'tiles': [17, 33, 49, 65]})
+                    entries.append({'lowerBound': 33, 'upperBound': 33, 'type': 2, 'special': 0, 'tiles': [17, 33, 49, 65]})
+                    entries.append({'lowerBound': 49, 'upperBound': 49, 'type': 2, 'special': 0, 'tiles': [17, 33, 49, 65]})
+                    entries.append({'lowerBound': 65, 'upperBound': 65, 'type': 2, 'special': 0, 'tiles': [17, 33, 49, 65]})
+                    entries.append({'lowerBound': 2, 'upperBound': 7, 'type': 1, 'special': 0, 'tiles': [2, 3, 4, 5, 6, 7]})
+                    entries.append({'lowerBound': 34, 'upperBound': 39, 'type': 1, 'special': 0, 'tiles': [34, 35, 36, 37, 38, 39]})
+                    entries.append({'lowerBound': 18, 'upperBound': 23, 'type': 3, 'special': 0, 'tiles': [18, 19, 20, 21, 22, 23]})
+                elif name == 'sub-terrain':
+                    entries.append({'lowerBound': 24, 'upperBound': 24, 'type': 2, 'special': 0, 'tiles': [24, 40, 56, 72]})
+                    entries.append({'lowerBound': 40, 'upperBound': 40, 'type': 2, 'special': 0, 'tiles': [24, 40, 56, 72]})
+                    entries.append({'lowerBound': 56, 'upperBound': 56, 'type': 2, 'special': 0, 'tiles': [24, 40, 56, 72]})
+                    entries.append({'lowerBound': 72, 'upperBound': 72, 'type': 2, 'special': 0, 'tiles': [24, 40, 56, 72]})
+                    entries.append({'lowerBound': 25, 'upperBound': 25, 'type': 2, 'special': 0, 'tiles': [25, 41, 57, 73]})
+                    entries.append({'lowerBound': 41, 'upperBound': 41, 'type': 2, 'special': 0, 'tiles': [25, 41, 57, 73]})
+                    entries.append({'lowerBound': 57, 'upperBound': 57, 'type': 2, 'special': 0, 'tiles': [25, 41, 57, 73]})
+                    entries.append({'lowerBound': 73, 'upperBound': 73, 'type': 2, 'special': 0, 'tiles': [25, 41, 57, 73]})
+                    entries.append({'lowerBound': 10, 'upperBound': 15, 'type': 1, 'special': 0, 'tiles': [10, 11, 12, 13, 14, 15]})
+                    entries.append({'lowerBound': 42, 'upperBound': 47, 'type': 1, 'special': 0, 'tiles': [42, 43, 44, 45, 46, 47]})
+                    entries.append({'lowerBound': 26, 'upperBound': 31, 'type': 3, 'special': 0, 'tiles': [26, 27, 28, 29, 30, 31]})
+                continue
+
+            # [list | range] = input space
+            if 'list' in random.attrib:
+                list_ = list(map(lambda s: int(s, 0), random.attrib['list'].split(",")))
+            else:
+                numbers = random.attrib['range'].split(",")
+
+                # inclusive range
+                list_ = range(int(numbers[0], 0), int(numbers[1], 0) + 1)
+
+            # values = output space [= [list | range] by default]
+            if 'values' in random.attrib:
+                values = list(map(lambda s: int(s, 0), random.attrib['values'].split(",")))
+            else:
+                values = None
+
+            direction = 0
+            if 'direction' in random.attrib:
+                direction_s = random.attrib['direction']
+                if direction_s in ['horizontal', 'both']:
+                    direction |= 0b01
+                if direction_s in ['vertical', 'both']:
+                    direction |= 0b10
+            else:
+                direction = 0b11
+
+            special = 0
+            if 'special' in random.attrib:
+                special_s = random.attrib['special']
+                if special_s == 'double-top':
+                    special = 0b01
+                elif special_s == 'double-bottom':
+                    special = 0b10
+            
+            
+            randomToEntry(entries, list_, values, direction, special)
+            
+        sections.append({'nameList' : nameList, 'entries' : entries})
+
+    dest.sections = sections
+
+
+def unique(original):
+    unique = []
+    [unique.append(obj) for obj in original if obj not in unique]
+    return unique
+
+
+def encodeRandTiles(dest):
+    currentOffset = 8 + len(dest.sections) * 4
+    allEntryData = []
+
+    for section in dest.sections:
+        section['offset'] = currentOffset
+        currentOffset += 8
+        
+        for entry in section['entries']:
+            entry['offset'] = currentOffset
+            allEntryData.append(entry['tiles'])
+            #print(entry)
+            currentOffset += 8
+        
+    nameListOffsets = {}
+    for section in dest.sections:
+        nameListOffsets[str(section['nameList'])] = currentOffset
+        currentOffset += 4 + (4 * len(section['nameList']))
+    
+    dataOffsets = {}
+    allEntryData = unique(allEntryData)
+    
+    for data in allEntryData:
+        dataOffsets[str(data)] = currentOffset
+        currentOffset += len(data)
+        
+    nameOffsets = {}
+    for section in dest.sections:
+        for name in section['nameList']:
+            nameOffsets[name] = currentOffset
+            currentOffset += len(name) + 1
+    
+    #print("nameOffsets: ")
+    #print(nameOffsets)
+    #print("dataOffsets: ")
+    #print(dataOffsets)
+    #print("nameListOffsets: ")
+    #print(nameListOffsets)
+
+    header = struct.pack('>4sI', b'NwRT', len(dest.sections))
+    offsets = b''
+    for section in dest.sections:
+        offsets += struct.pack('>I', section['offset'])
+    
+    def getSectionData(section):
+        nameListOffset = nameListOffsets[str(section['nameList'])] - section['offset']
+        
+        entryCount = len(section['entries'])
+        
+        entryData = b''
+        for entry in section['entries']:
+            lowerBound = entry['lowerBound']
+            upperBound = entry['upperBound']
+            
+            count = len(entry['tiles'])
+            
+            type = entry['type'] | (entry['special'] << 2)
+            
+            numOffset = dataOffsets[str(entry['tiles'])] - entry['offset']
+            
+            entryData += struct.pack('>BBBBI', lowerBound, upperBound, count, type, numOffset)
+    
+        return struct.pack('>II', nameListOffset, entryCount) + entryData
+    
+    def getnameListData(section):
+        count = struct.pack('>I', len(section['nameList']))
+        cOffsets = b''
+        for name in section['nameList']:
+            cOffsets += struct.pack('>I', nameOffsets[name] - nameListOffsets[str(section['nameList'])])
+        
+        return count + cOffsets
+    
+    sectionData = []
+    nameListData = []
+    for section in dest.sections:
+        sectionData.append(getSectionData(section))
+        nameListData.append(getnameListData(section))
+    
+    #print(dest.sections)
+    
+    output = [header, offsets]
+    output += sectionData
+    output += nameListData
+    for entryData in allEntryData:
+        #print(" ")#entryData)
+        #output += struct.pack('>{}s'.format(len(entryData)), entryData)
+        output += [bytes(entryData)]
+            
+    for section in dest.sections:
+        #nameList = '\0'.join(section['nameList'])
+        #output += struct.pack('>{}s'.format(len(nameList)), nameList)
+        #output += b'\x00'
+        output += [bytes('\0'.join(section['nameList']), 'utf-8')]
+        output += [b'\x00']
+    #    out += struct.pack('>HHHBB', texNameOffset, frameDelayOffset, tileNum, tilesetNum, reverse)
+
+    # and save the result
+    #print(strTable)
+    #print(output)
+    dest.bin = b''.join(output)#out#dest.bin = out + bytes(strTable, 'utf8')
 
 
 #############################################################################################
