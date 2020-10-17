@@ -1,13 +1,14 @@
 '''
 Licensed under the terms of the MIT License
 https://github.com/luchko/QCodeEditor
+https://github.com/ikoichi/markdown-editor
+https://github.com/N-I-N-0/Puzzle-Next
 @author: Ivan Luchko (luchko.ivan@gmail.com)
+@author: <luca.restagno@gmail.com>
+@author: Nin0#2257
 
 This module contains the light QPlainTextEdit based QCodeEditor widget which 
 provides the line numbers bar and the syntax and the current line highlighting.
-
-    class XMLHighlighter(QSyntaxHighlighter):
-    class QCodeEditor(QPlainTextEdit):
 '''
 try:
     import PyQt5 as PyQt
@@ -43,6 +44,7 @@ class XMLHighlighter(QSyntaxHighlighter):
         super(XMLHighlighter, self).__init__(parent)
 
         self.highlightingRules = []
+        self.searchRules = []
 
         xmlElementFormat = QTextCharFormat()
         xmlElementFormat.setForeground(QColor("#22863a"))
@@ -82,27 +84,193 @@ class XMLHighlighter(QSyntaxHighlighter):
             #Check what index that expression occurs at with the ENTIRE text
             index = expression.indexIn(text) 
             #While the index is greater than 0
-            while index >= 0: 
+            while index >= 0:
                 #Get the length of how long the expression is true, set the format from the start to the length with the text format
                 length = expression.matchedLength()
-                self.setFormat(index, length, format) 
+                self.setFormat(index, length, format)
                 #Set index to where the expression ends in the text
-                index = expression.indexIn(text, index + length) 
+                index = expression.indexIn(text, index + length)
+
 
         #HANDLE QUOTATION MARKS NOW.. WE WANT TO START WITH " AND END WITH ".. A THIRD " SHOULD NOT CAUSE THE WORDS INBETWEEN SECOND AND THIRD TO BE COLORED
-        self.setCurrentBlockState(0) 
+        self.setCurrentBlockState(0)
         startIndex = 0
         if self.previousBlockState() != 1:
-            startIndex = self.valueStartExpression.indexIn(text) 
+            startIndex = self.valueStartExpression.indexIn(text)
         while startIndex >= 0:
-            endIndex = self.valueEndExpression.indexIn(text, startIndex) 
+            endIndex = self.valueEndExpression.indexIn(text, startIndex)
             if endIndex == -1:
                 self.setCurrentBlockState(1)
                 commentLength = len(text) - startIndex
             else:
-                commentLength = endIndex - startIndex + self.valueEndExpression.matchedLength() 
-            self.setFormat(startIndex, commentLength, self.valueFormat) 
+                commentLength = endIndex - startIndex + self.valueEndExpression.matchedLength()
+            self.setFormat(startIndex, commentLength, self.valueFormat)
             startIndex = self.valueStartExpression.indexIn(text, startIndex + commentLength);
+
+        for word in self.searchRules:
+            expression = QRegExp(word)
+            expression.setCaseSensitivity(Qt.CaseInsensitive)
+            index = expression.indexIn(text)
+            while index >= 0: 
+                length = expression.matchedLength()
+                keywordFormat = QTextCharFormat()
+                keywordFormat.setForeground(QColor("#FF0000"))
+                self.setFormat(index, length, keywordFormat)
+                index = expression.indexIn(text, index + length)
+
+
+class SearchHighlighter(QSyntaxHighlighter):
+    def __init__(self, parent=None):
+        super(SearchHighlighter, self).__init__(parent)
+
+        self.searchRules = []
+
+    def highlightBlock(self, text):
+        for word in self.searchRules:
+            expression = QRegExp(word)
+            expression.setCaseSensitivity(Qt.CaseInsensitive)
+            index = expression.indexIn(text)
+            while index >= 0: 
+                length = expression.matchedLength()
+                keywordFormat = QTextCharFormat()
+                keywordFormat.setForeground(QColor("#FF0000"))
+                self.setFormat(index, length, keywordFormat)
+                index = expression.indexIn(text, index + length)
+
+
+class MarkdownHighlighter(QSyntaxHighlighter):
+    'Modified version of: https://github.com/ikoichi/markdown-editor'
+    def __init__(self, parent=None):
+        super(MarkdownHighlighter, self).__init__(parent)
+
+        self.h1_color               = '#6C78C4'
+        self.h2_color               = '#6C78C4'
+        self.h3_color               = '#6C78C4'
+        self.h4_color               = '#268BD2'
+        self.h5_color               = '#268BD2'
+        self.h6_color               = '#268BD2'
+        self.bold_color             = '#DC322F'
+        self.italic_color           = '#CB4B16'
+        self.link_color             = '#4E27A6'
+        self.code_color             = '#008C3F'
+        self.anchor_color           = '#BF6211'
+        self.block_quotes_color     = '#93A1A1'
+        self.html_entity_color      = '#8871C4'
+
+        keywordFormat = QTextCharFormat()
+        keywordFormat.setForeground(Qt.darkBlue)
+        keywordFormat.setFontWeight(QFont.Bold)
+
+        keywordPatterns = []
+
+        self.highlightingRules = [(QRegExp(pattern), keywordFormat)
+                for pattern in keywordPatterns]
+
+        # italic
+        italicFormat = QTextCharFormat()
+        italicFormat.setForeground(QColor(self.italic_color))
+        italicFormat.setFontItalic(True)
+        self.highlightingRules.append((QRegExp("\*.*\*"),italicFormat))
+
+        # bold
+        boldFormat = QTextCharFormat()
+        boldFormat.setForeground(QColor(self.italic_color))
+        boldFormat.setFontWeight(99)
+        self.highlightingRules.append((QRegExp("\*\*.*\*\*"),boldFormat))
+
+        # h1
+        h1Format = QTextCharFormat()
+        h1Format.setForeground(QColor(self.h1_color))
+        h1Format.setFontWeight(99)
+        h1Format.setFontPointSize(18)
+        self.highlightingRules.append((QRegExp("^#.*$"),h1Format))
+
+        # h2
+        h2Format = QTextCharFormat()
+        h2Format.setForeground(QColor(self.h2_color))
+        h2Format.setFontWeight(99)
+        h2Format.setFontPointSize(16)
+        self.highlightingRules.append((QRegExp("^##.*$"),h2Format))
+
+        # h3
+        h3Format = QTextCharFormat()
+        h3Format.setForeground(QColor(self.h3_color))
+        h3Format.setFontWeight(99)
+        h3Format.setFontPointSize(14)
+        self.highlightingRules.append((QRegExp("^###.*$"),h3Format))
+
+        # h4
+        h4Format = QTextCharFormat()
+        h4Format.setForeground(QColor(self.h4_color))
+        h4Format.setFontWeight(99)
+        h4Format.setFontPointSize(12)
+        self.highlightingRules.append((QRegExp("^####.*$"),h4Format))
+
+        # h5
+        h5Format = QTextCharFormat()
+        h5Format.setForeground(QColor(self.h5_color))
+        h5Format.setFontWeight(99)
+        h5Format.setFontPointSize(10)
+        self.highlightingRules.append((QRegExp("^#####.*$"),h5Format))
+
+        # h6
+        h6Format = QTextCharFormat()
+        h6Format.setForeground(QColor(self.h6_color))
+        h6Format.setFontWeight(99)
+        h6Format.setFontPointSize(10)
+        self.highlightingRules.append((QRegExp("^######.*$"),h6Format))
+
+        # link
+        linkFormat = QTextCharFormat()
+        linkFormat.setForeground(QColor(self.link_color))
+        self.highlightingRules.append((QRegExp("<.*>"),linkFormat))
+
+        # anchor
+        anchorFormat = QTextCharFormat()
+        anchorFormat.setForeground(QColor(self.anchor_color))
+        self.highlightingRules.append((QRegExp("\[.*\]\(.*\)"),anchorFormat))
+
+        # code
+        codeFormat = QTextCharFormat()
+        codeFormat.setForeground(QColor(self.code_color))
+        codeFormat.setFontPointSize(10)
+        codeFormat.setFontWeight(75)
+        self.highlightingRules.append((QRegExp("`.*`"),codeFormat))
+
+        codeFormat2 = QTextCharFormat()
+        codeFormat2.setForeground(QColor(self.code_color))
+        codeFormat2.setFontPointSize(10)
+        codeFormat2.setFontWeight(75)
+        self.highlightingRules.append((QRegExp("\t.*$"),codeFormat2))
+
+        # block quotes
+        blockQuotesFormat = QTextCharFormat()
+        blockQuotesFormat.setForeground(QColor(self.block_quotes_color))
+        self.highlightingRules.append((QRegExp("^> "),blockQuotesFormat))
+
+        # html entity
+        htmlEntityFormat = QTextCharFormat()
+        htmlEntityFormat.setForeground(QColor(self.html_entity_color))
+        self.highlightingRules.append((QRegExp("&.*;"),htmlEntityFormat))
+
+#         functionFormat = QTextCharFormat()
+#         functionFormat.setFontItalic(True)
+#         functionFormat.setForeground(Qt.blue)
+#         self.highlightingRules.append((QRegExp("\\b[A-Za-z0-9_]+(?=\\()"),functionFormat))
+#
+#         self.commentStartExpression = QRegExp("/\\*")
+#         self.commentEndExpression = QRegExp("\\*/")
+
+    def highlightBlock(self, text):
+        for pattern, format in self.highlightingRules:
+            expression = QRegExp(pattern)
+            index = expression.indexIn(text)
+            while index >= 0:
+                length = expression.matchedLength()
+                self.setFormat(index, length, format)
+                index = expression.indexIn(text, index + length)
+
+        self.setCurrentBlockState(0)
 
 
 class QCodeEditor(QPlainTextEdit):
@@ -219,6 +387,7 @@ class QCodeEditor(QPlainTextEdit):
 
         if SyntaxHighlighter is not None: # add highlighter to textdocument
            self.highlighter = SyntaxHighlighter(self.document())
+
 
         self.appendPlainText("\n\n\n\n\n\n\n\n\n\n")
         self.clear()
