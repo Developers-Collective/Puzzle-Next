@@ -47,31 +47,31 @@ class XMLHighlighter(QSyntaxHighlighter):
         self.searchRules = []
 
         xmlElementFormat = QTextCharFormat()
-        xmlElementFormat.setForeground(QColor("#22863a"))
+        xmlElementFormat.setForeground(QColor("#00ee00"))
         self.highlightingRules.append((QRegExp("\\b[A-Za-z0-9_]+(?=[\s/>])"), xmlElementFormat))
 
         xmlAttributeFormat = QTextCharFormat()
         xmlAttributeFormat.setFontItalic(True)
-        xmlAttributeFormat.setForeground(QColor("#6f42c1"))
+        xmlAttributeFormat.setForeground(QColor("#d000d0"))
         self.highlightingRules.append((QRegExp("\\b[A-Za-z0-9_]+(?=\\=)"), xmlAttributeFormat))
         self.highlightingRules.append((QRegExp("="), xmlAttributeFormat))
 
         self.valueFormat = QTextCharFormat()
-        self.valueFormat.setForeground(QColor("#032f62"))
+        self.valueFormat.setForeground(QColor("#55dddd"))
         self.valueStartExpression = QRegExp("\"")
         self.valueEndExpression = QRegExp("\"(?=[\s></])")
 
         singleLineCommentFormat = QTextCharFormat()
-        singleLineCommentFormat.setForeground(QColor("#a0a0a4"))
+        singleLineCommentFormat.setForeground(QColor("#b3b3b3"))
         self.highlightingRules.append((QRegExp("<!--[^\n]*-->"), singleLineCommentFormat))
 
         textFormat = QTextCharFormat()
-        textFormat.setForeground(QColor("#000000"))
+        textFormat.setForeground(QColor("#FFFFFF"))
         # (?<=...)  - lookbehind is not supported
         self.highlightingRules.append((QRegExp(">(.+)(?=</)"), textFormat))
 
         keywordFormat = QTextCharFormat()
-        keywordFormat.setForeground(QColor("#000000"))
+        keywordFormat.setForeground(QColor("#FFFFFF"))
         keywordPatterns = ["\\b?xml\\b", "/>", ">", "<", "</"] 
         self.highlightingRules += [(QRegExp(pattern), keywordFormat) for pattern in keywordPatterns]
 
@@ -114,7 +114,7 @@ class XMLHighlighter(QSyntaxHighlighter):
             while index >= 0: 
                 length = expression.matchedLength()
                 keywordFormat = QTextCharFormat()
-                keywordFormat.setForeground(QColor("#FF0000"))
+                keywordFormat.setBackground(QColor("#FF0000"))
                 self.setFormat(index, length, keywordFormat)
                 index = expression.indexIn(text, index + length)
 
@@ -133,7 +133,7 @@ class SearchHighlighter(QSyntaxHighlighter):
             while index >= 0: 
                 length = expression.matchedLength()
                 keywordFormat = QTextCharFormat()
-                keywordFormat.setForeground(QColor("#FF0000"))
+                keywordFormat.setBackground(QColor("#FF0000"))
                 self.setFormat(index, length, keywordFormat)
                 index = expression.indexIn(text, index + length)
 
@@ -294,7 +294,7 @@ class QCodeEditor(QPlainTextEdit):
             self.editor.blockCountChanged.connect(self.updateWidth)
             self.editor.updateRequest.connect(self.updateContents)
             self.font = QFont()
-            self.numberBarColor = QColor("#e8e8e8")
+            self.numberBarColor = QColor("#171717")
 
 
         def paintEvent(self, event):
@@ -315,7 +315,7 @@ class QCodeEditor(QPlainTextEdit):
                 # We want the line number for the selected line to be bold.
                 if blockNumber == self.editor.textCursor().blockNumber() and self.editor.hasFocus():
                     self.font.setBold(True)
-                    painter.setPen(QColor("#000000"))
+                    painter.setPen(QColor("#FFFFFF"))
                 else:
                     self.font.setBold(False)
                     painter.setPen(QColor("#717171"))
@@ -380,7 +380,7 @@ class QCodeEditor(QPlainTextEdit):
 
         if HIGHLIGHT_CURRENT_LINE:
             self.currentLineNumber = None
-            self.currentLineColor = self.palette().alternateBase()
+            self.currentLineColor = QColor("#171717")
             self.cursorPositionChanged.connect(self.highligtCurrentLine)
             self.original_out = self.focusOutEvent
             self.focusOutEvent = self.focusOut

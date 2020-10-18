@@ -24,7 +24,6 @@ try:
 except ImportError:
     HaveNSMBLib = False
 
-
 if hasattr(QtCore, 'pyqtSlot'): # PyQt
     QtCoreSlot = QtCore.pyqtSlot
     QtCoreSignal = QtCore.pyqtSignal
@@ -639,7 +638,7 @@ class InfoBox(QtWidgets.QWidget):
 
         def showScreenshot():
             self.image = window.tileDisplay.grab()
-            self.image = self.image.scaled(self.image.width()*3, self.image.height()*3)
+            self.image = self.image.scaled(self.image.width()*2, self.image.height()*2)
             self.screenshotWindow = QScreenshot(self.image)
             self.screenshotWindow.show()
 
@@ -724,7 +723,6 @@ class framesheetList(QtWidgets.QListView):
     def __init__(self, parent=None):
         super(framesheetList, self).__init__(parent)
 
-        height = getFramesheetGridSize()
         self.setViewMode(QtWidgets.QListView.IconMode)
         self.setHeight()
         self.setMovement(QtWidgets.QListView.Static)
@@ -2200,15 +2198,26 @@ class objectList(QtWidgets.QListView):
         super(objectList, self).__init__(parent)
 
 
-        self.setViewMode(QtWidgets.QListView.IconMode)
-        self.setIconSize(QtCore.QSize(96,96))
-        self.setGridSize(QtCore.QSize(128,128))
-        self.setMovement(QtWidgets.QListView.Static)
+        self.setIconSize(QtCore.QSize(1000, 1000))
+        self.setUniformItemSizes(False)
         self.setBackgroundRole(QtGui.QPalette.BrightText)
         self.setWrapping(False)
-        self.setMinimumHeight(140)
-        self.setMaximumHeight(140)
+        self.setMinimumWidth(200)
 
+    def setHeight(self):
+        height = getObjectMaxSize()
+        self.setIconSize(QtCore.QSize(32, height))
+        #self.setGridSize(QtCore.QSize(200,height+50))
+
+
+def getObjectMaxSize():
+    global Tileset
+    max = 0
+    for key in list(Tileset.animdata.keys()):
+        t = len(Tileset.animdata[key])//64
+        if t > max:
+            max = t
+    return max
 
 
 def SetupObjectModel(self, objects, tiles):
@@ -2253,9 +2262,9 @@ class displayWidget(QtWidgets.QListView):
         super(displayWidget, self).__init__(parent)
 
         self.setMinimumWidth(424)
-        self.setMaximumWidth(444)
+        self.setMaximumWidth(424)
         self.setMinimumHeight(424)
-        self.setMaximumHeight(444)
+        self.setMaximumHeight(424)
         self.setDragEnabled(True)
         self.setViewMode(QtWidgets.QListView.IconMode)
         self.setIconSize(QtCore.QSize(24,24))
@@ -2771,11 +2780,12 @@ class tileOverlord(QtWidgets.QWidget):
         # Layout
         layout = QtWidgets.QGridLayout()
 
-        layout.addWidget(self.tilesetType, 0, 0, 1, 3)
-        layout.addWidget(self.tilingMethod, 0, 3, 1, 3)
+        layout.addWidget(self.addObject, 0, 0, 1, 4)
+        layout.addWidget(self.removeObject, 0, 4, 1, 4)
 
-        layout.addWidget(self.addObject, 0, 6, 1, 1)
-        layout.addWidget(self.removeObject, 0, 7, 1, 1)
+        layout.addWidget(self.tilesetType, 1, 0, 1, 1)
+        layout.addWidget(self.tilingMethod, 1, 1, 1, 7)
+
 
         layout.setRowMinimumHeight(1, 40)
 
@@ -4484,11 +4494,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def setupMenus(self):
         fileMenu = self.menuBar().addMenu("&File")
 
-        pixmap = QtGui.QPixmap(60,60)
-        pixmap.fill(Qt.black)
-        icon = QtGui.QIcon(pixmap)
-
-        self.action = fileMenu.addAction(icon, "New", self.newTileset, QtGui.QKeySequence('Ctrl+N'))
+        self.action = fileMenu.addAction("New", self.newTileset, QtGui.QKeySequence('Ctrl+N'))
         fileMenu.addAction("Open Tileset", self.openTileset, QtGui.QKeySequence('Ctrl+O'))
         fileMenu.addAction("Import Image", self.openImage, QtGui.QKeySequence('Ctrl+I'))
         fileMenu.addAction("Export Image", self.saveImage, QtGui.QKeySequence('Ctrl+E'))
@@ -4625,9 +4631,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Second Tab
         self.container = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.objectList)
-        layout.addWidget(self.tileWidget)
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(self.objectList, 0, 0, 1, 1)
+        layout.addWidget(self.tileWidget, 0, 1, 1, 1)
         self.container.setLayout(layout)
 
         # Third Tab
@@ -4830,6 +4836,7 @@ if '-nolib' in sys.argv:
     HaveNSMBLib = False
     sys.argv.remove('-nolib')
 
+
 if __name__ == '__main__':
 
     import sys
@@ -4842,9 +4849,14 @@ if __name__ == '__main__':
     if path is not None:
         os.chdir(path)
 
+    with open("dark.qss", 'r') as file:
+        qss = file.read()
+    app.setStyleSheet(qss)
+
     window = MainWindow()
     if len(sys.argv) > 1:
         window.openTilesetFromPath(sys.argv[1])
     window.show()
+
     sys.exit(app.exec_())
     app.deleteLater()
