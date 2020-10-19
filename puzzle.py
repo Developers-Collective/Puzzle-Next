@@ -648,8 +648,10 @@ class InfoBox(QtWidgets.QWidget):
         self.coreInfo = QtWidgets.QLabel()
         self.terrainInfo = QtWidgets.QLabel()
         self.paramInfo = QtWidgets.QLabel()
+        self.propertyBox = QtWidgets.QGroupBox()
         self.propertyInfo = QtWidgets.QLabel('Properties:\nNone             \n\n\n\n\n')
         self.propertyInfo.setWordWrap(True)
+        self.propertyInfo.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
 
         Font = self.font()
         Font.setPointSize(9)
@@ -701,16 +703,20 @@ class InfoBox(QtWidgets.QWidget):
         imageLayout.addLayout(paramLayout)
 
         self.imageBox.setLayout(imageLayout)
-        self.setMinimumWidth(800)
-        #self.setMaximumWidth(800)
 
-        superLayout.addWidget(self.imageBox, 0, 0)
-        superLayout.addWidget(self.hexdata, 1, 0, 1, 2, Qt.AlignCenter)
-        superLayout.addWidget(self.numInfo, 2, 0, 1, 2, Qt.AlignCenter)
-        superLayout.addWidget(self.collisionOverlay, 3, 0)
-        superLayout.addWidget(self.screenshotButton, 3, 1, Qt.AlignRight)
+        infoLayout.setContentsMargins(0,4,4,4)
         infoLayout.addRow(self.propertyInfo)
-        superLayout.addLayout(infoLayout, 0, 1, 2, 1)
+        self.propertyBox.setLayout(infoLayout)
+
+        self.setMinimumWidth(800)
+        #self.setMaximumWidth(1000)
+
+        superLayout.addWidget(self.imageBox, 0, 2, 1, 2)
+        superLayout.addWidget(self.propertyBox, 0, 0, 1, 2)
+        superLayout.addWidget(self.hexdata, 1, 0, 1, 4, Qt.AlignCenter)
+        superLayout.addWidget(self.numInfo, 2, 0, 1, 4, Qt.AlignCenter)
+        superLayout.addWidget(self.collisionOverlay, 3, 0, 1, 2)
+        superLayout.addWidget(self.screenshotButton, 3, 3, 1, 1, Qt.AlignRight)
         self.setLayout(superLayout)
 
 
@@ -1114,6 +1120,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
 
         self.checkBox = QtWidgets.QCheckBox('Reverse playback direction')
 
+        self.checkBox.clicked.connect(self.setTilenum)
 
         self.rowA.addWidget(self.nameLabel, Qt.AlignRight)
         self.rowB.addWidget(self.delayLabel)
@@ -1221,6 +1228,8 @@ class frameEditorOverlord(QtWidgets.QWidget):
     def setTilenum(self, val):
         val = (self.spin1.value()<<8)+(self.spin2.value()<<4)+(self.spin3.value())
         self.tilenumLabel.setText(str(val))
+        self.list.setItemText(self.list.currentIndex(), "Tilenum: {}, Reversed: {}".format(val, self.checkBox.isChecked()))
+        self.saveChanges()
 
 
     def setupContainer(self, data = None):
@@ -1317,7 +1326,10 @@ class frameEditorOverlord(QtWidgets.QWidget):
             item = window.framesheetmodel.itemFromIndex(window.framesheetmodel.index(i, 0))
             texname = item.text()
             framenum = len(Tileset.animdata["BG_tex/{0}.bin".format(texname)])//2048
-            frameEditorData.animations[texname] = getAllEntriesWithName(AnimTiles, texname, framenum, removeFromAnimations=True)
+            if texname in frameEditorData.animations:
+                frameEditorData.animations[texname].extend(getAllEntriesWithName(AnimTiles, texname, framenum, removeFromAnimations=True))
+            else:
+                frameEditorData.animations[texname] = getAllEntriesWithName(AnimTiles, texname, framenum, removeFromAnimations=True)
             i += 1
 
         window.animTilesEditor.text.setPlainText(animationsToText(AnimTiles))
@@ -1356,7 +1368,11 @@ class frameEditorOverlord(QtWidgets.QWidget):
             item = window.framesheetmodel.itemFromIndex(window.framesheetmodel.index(i, 0))
             texname = item.text()
             framenum = len(Tileset.animdata["BG_tex/{0}.bin".format(texname)])//2048
-            frameEditorData.animations[texname] = getAllEntriesWithName(temp, texname, framenum, removeFromAnimations=True)
+            if texname in frameEditorData.animations:
+                frameEditorData.animations[texname].extend(getAllEntriesWithName(temp, texname, framenum, removeFromAnimations=True))
+                print(frameEditorData.animations)
+            else:
+                frameEditorData.animations[texname] = getAllEntriesWithName(temp, texname, framenum, removeFromAnimations=True)
             i += 1
 
         self.setFramesheet(3)
@@ -1437,6 +1453,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
                                         "border : 0px solid black;"
                                         "}"
                                         )
+            self.spinBox.valueChanged.connect(self.saveChanges)
             self.table.setCellWidget(i, 1, self.spinBox)
 
 
@@ -1451,6 +1468,30 @@ class frameEditorOverlord(QtWidgets.QWidget):
 
 
         self.setupComboBox()
+
+
+    def saveChanges(self):
+        try:
+            entry = {}
+            entry['tilenum'] = (self.spin1.value()<<8)+(self.spin2.value()<<4)+(self.spin3.value())
+            entry['tileset'] = self.spin1.value()                                                   #???
+            entry['reverse'] = self.checkBox.isChecked()
+            framedelays = []
+            i = 0
+            while i < self.table.rowCount():
+                framedelays.append(self.table.cellWidget(i, 1).value())
+                i += 1
+            entry['framedelays'] = framedelays
+
+            index = window.framesheetList.currentIndex()
+            texname = window.framesheetmodel.itemFromIndex(index).text()
+            entry['texname'] = "{}.bin".format(texname)
+
+            self.opened[self.list.currentIndex()] = entry
+            frameEditorData.animations[texname] = self.opened
+
+        except:
+            print("Eventually something went wrong here ... not sure though ...")
 
 
     def setEnabled(self, enabled):
@@ -1469,7 +1510,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
         self.list.clear()
         if not len(self.opened) == 0:
             for dict in self.opened:
-                self.list.addItem("Tilenum: {0}".format(dict['tilenum']))
+                self.list.addItem("Tilenum: {}, Reversed: {}".format(dict['tilenum'], dict['reverse']))
 
         self.list.addItem("New ...")
 
@@ -1495,6 +1536,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
             self.setupContainer(animation)
             self.list.setCurrentIndex(-1)
             self.setupComboBox()
+            self.saveChanges()
         else:                               #open selected info
             if self.opened:
                 animation = self.opened[index]
@@ -2203,6 +2245,7 @@ class objectList(QtWidgets.QListView):
         self.setBackgroundRole(QtGui.QPalette.BrightText)
         self.setWrapping(False)
         self.setMinimumWidth(200)
+        self.setMaximumWidth(400)
 
     def setHeight(self):
         height = getObjectMaxSize()
@@ -3937,17 +3980,17 @@ class MainWindow(QtWidgets.QMainWindow):
         Tileset.clear()
         Tileset = TilesetClass()
 
-        #global AnimTiles
-        #AnimTiles.clear()
-        #AnimTiles = AnimTilesClass()
+        global AnimTiles
+        AnimTiles.clear()
+        AnimTiles = AnimTilesClass()
 
-        #global frameEditorData
-        #frameEditorData.clear()
-        #frameEditorData = AnimTilesClass()
+        global frameEditorData
+        frameEditorData = type('frameEditorClass', (), {})()
+        frameEditorData.animations = {}
 
-        #global RandTiles
-        #RandTiles.clear()
-        #RandTiles = RandTilesClass()
+        global RandTiles
+        RandTiles.clear()
+        RandTiles = RandTilesClass()
 
         EmptyPix = QtGui.QPixmap(24, 24)
         EmptyPix.fill(Qt.black)
@@ -3955,8 +3998,14 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(256):
             Tileset.addTile(EmptyPix, EmptyPix)
 
+        self.clearObjects()
         self.setuptile()
         self.setWindowTitle('New Tileset')
+
+        index = self.framesheetList.currentIndex()
+        if not index.isValid():
+            self.frameEditor.setEnabled(False)
+            self.frameEditor.table.setRowCount(0)
 
 
     def openTileset(self):
@@ -4661,7 +4710,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         # Sets the Tabs
-        self.tabWidget.addTab(self.paletteWidget, 'Behaviours')
+        self.tabWidget.addTab(self.paletteWidget, 'Behaviors')
         self.tabWidget.addTab(self.container, 'Objects')
         self.tabWidget.addTab(self.framesheetContainer, 'Framesheets')
         self.tabWidget.addTab(self.frameEditor, 'Animation Editor')
@@ -4671,13 +4720,13 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connections do things!
         self.tileDisplay.clicked.connect(self.paintFormat)
         self.tileDisplay.mouseMoved.connect(self.updateInfo)
-        self.objectList.clicked.connect(self.tileWidget.setObject)
+        self.objectList.selectionModel().currentChanged.connect(self.tileWidget.setObject)
 
         self.tabWidget.tabBarClicked.connect(self.frameEditor.setFramesheet)
 
         # Layout
-        frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 3)
-        frameLayout.addWidget(self.tileDisplay, 1, 1)
+        frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 3, Qt.AlignTop)
+        frameLayout.addWidget(self.tileDisplay, 1, 0, 1, 3, Qt.AlignTop | Qt.AlignCenter)
         frameLayout.addWidget(self.tabWidget, 0, 3, 2, 3)
         self.setCentralWidget(frame)
 
