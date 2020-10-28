@@ -632,6 +632,9 @@ class InfoBox(QtWidgets.QWidget):
         self.collisionOverlay = QtWidgets.QCheckBox('Overlay Collision')
         self.collisionOverlay.clicked.connect(updateAllTiles)
 
+        self.toggleAlpha = QtWidgets.QCheckBox('Toggle Background')
+        self.toggleAlpha.clicked.connect(window.toggleAlpha)
+
         class QScreenshot(QtWidgets.QSplashScreen):
             def __init__(self, screenshot):
                 super().__init__(screenshot)
@@ -715,7 +718,8 @@ class InfoBox(QtWidgets.QWidget):
         superLayout.addWidget(self.propertyBox, 0, 0, 1, 2)
         superLayout.addWidget(self.hexdata, 1, 0, 1, 4, Qt.AlignCenter)
         superLayout.addWidget(self.numInfo, 2, 0, 1, 4, Qt.AlignCenter)
-        superLayout.addWidget(self.collisionOverlay, 3, 0, 1, 2)
+        superLayout.addWidget(self.collisionOverlay, 3, 0, 1, 1)
+        superLayout.addWidget(self.toggleAlpha, 3, 1, 1, 2, Qt.AlignCenter)
         superLayout.addWidget(self.screenshotButton, 3, 3, 1, 1, Qt.AlignRight)
         self.setLayout(superLayout)
 
@@ -932,7 +936,7 @@ class framesheetOverlord(QtWidgets.QWidget):
 
             name = newName
 
-        image = framesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32);
+        image = framesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32)
         data = RGB4A3FramesheetEncode(image)
         Tileset.animdata["BG_tex/{0}.bin".format(name)] = data
 
@@ -2328,7 +2332,6 @@ class displayWidget(QtWidgets.QListView):
         QtWidgets.QWidget.mouseMoveEvent(self, event)
 
         self.mouseMoved.emit(event.x(), event.y())
-
 
 
     class TileItemDelegate(QtWidgets.QAbstractItemDelegate):
@@ -3938,6 +3941,81 @@ class MainWindow(QtWidgets.QMainWindow):
             i += 1
 
 
+    def createClampedFramesheet(self):
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open unclamped framesheet", '', "Unclamped Framesheet (*.png)")[0]
+
+        if path:
+            framesheet = QtGui.QPixmap()
+            if not framesheet.load(path):
+                QtWidgets.QMessageBox.warning(self, "Open framesheet", "The framesheet file could not be loaded.", QtWidgets.QMessageBox.Cancel)
+                return
+
+            if framesheet.height() % framesheet.width() != 0:
+                QtWidgets.QMessageBox.information(self, "Warning!",
+                        "There seem to be some pixels missing here.\n"
+                        "Make sure that the height of your framesheet is a multiple of its' width!")
+
+            downScaledFramesheet = framesheet.scaledToWidth(24)
+            downScaledImage = downScaledFramesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32)
+
+            image = QtGui.QImage(32, downScaledFramesheet.height() / 24 * 32, QtGui.QImage.Format_ARGB32)
+            image.fill(Qt.transparent)
+
+            i = 0
+            while i < downScaledImage.height() // 24:
+                y = 0
+                while y < 24:
+                    x = 0
+                    while x < 24:
+                        color = downScaledImage.pixel(x, y)
+                        image.setPixel(x + 4, i * 32 + y + 4, color)
+                        x += 1
+                    y += 1
+
+                y = 0                                                   #texture clamp top
+                while y < 4:
+                    x = 0
+                    while x < 24:
+                        color = image.pixel(x + 4, i * 32 + 5)
+                        image.setPixel(x + 4, i * 32 + y, color)
+                        x += 1
+                    y += 1
+
+                y = 0                                                   #texture clamp bottom
+                while y < 4:
+                    x = 0
+                    while x < 24:
+                        color = image.pixel(x + 4, i * 32 + 27)
+                        image.setPixel(x + 4, i * 32 + y + 28, color)
+                        x += 1
+                    y += 1
+
+                x = 0                                                   #texture clamp left
+                while x < 4:
+                    y = 0
+                    while y < 24:
+                        color = image.pixel(5, i * 32 + y + 4)
+                        image.setPixel(x, i * 32 + y + 4, color)
+                        y += 1
+                    x += 1
+
+                x = 0                                                   #texture clamp right
+                while x < 4:
+                    y = 0
+                    while y < 24:
+                        color = image.pixel(27, i * 32 + y + 4)
+                        image.setPixel(x + 28, i * 32 + y + 4, color)
+                        y += 1
+                    x += 1
+
+                i += 1
+
+            fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save the clamped framesheet', '', 'Clamped Framesheet (*.png)')[0]
+            if not fn: return
+
+            image.save(fn)
+
+
     def createReadme(self):
         self.readmeWindow = QtWidgets.QWidget()
         self.text = QCodeEditor.QCodeEditor(SyntaxHighlighter=QCodeEditor.MarkdownHighlighter)
@@ -4541,15 +4619,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def setupMenus(self):
+
+        def get(name):
+            """
+            Returns an icon
+            """
+            try:
+                return QtGui.QIcon('MenuIcons/icon-' + name + '.png')
+            except:
+                return None
+
         fileMenu = self.menuBar().addMenu("&File")
 
-        self.action = fileMenu.addAction("New", self.newTileset, QtGui.QKeySequence('Ctrl+N'))
-        fileMenu.addAction("Open Tileset", self.openTileset, QtGui.QKeySequence('Ctrl+O'))
-        fileMenu.addAction("Import Image", self.openImage, QtGui.QKeySequence('Ctrl+I'))
-        fileMenu.addAction("Export Image", self.saveImage, QtGui.QKeySequence('Ctrl+E'))
-        fileMenu.addAction("Save Tileset", self.saveTileset, QtGui.QKeySequence('Ctrl+S'))
-        fileMenu.addAction("Save Tileset as", self.saveTilesetAs, QtGui.QKeySequence('Ctrl+Shift+S'))
-        fileMenu.addAction("Quit", self.close, QtGui.QKeySequence('Ctrl+Q'))
+        self.action = fileMenu.addAction(get('new'), "New", self.newTileset, QtGui.QKeySequence('Ctrl+N'))
+        fileMenu.addAction(get('open'), "Open Tileset", self.openTileset, QtGui.QKeySequence('Ctrl+O'))
+        fileMenu.addAction(get('import'), "Import Image", self.openImage, QtGui.QKeySequence('Ctrl+I'))
+        fileMenu.addAction(get('export'), "Export Image", self.saveImage, QtGui.QKeySequence('Ctrl+E'))
+        fileMenu.addAction(get('save'), "Save Tileset", self.saveTileset, QtGui.QKeySequence('Ctrl+S'))
+        fileMenu.addAction(get('saveas'), "Save Tileset as", self.saveTilesetAs, QtGui.QKeySequence('Ctrl+Shift+S'))
+        fileMenu.addAction(get('exit'), "Quit", self.close, QtGui.QKeySequence('Ctrl+Q'))
 
         fileMenu.addSeparator()
         nsmblibAct = fileMenu.addAction('Using NSMBLib' if HaveNSMBLib else 'Not using NSMBLib')
@@ -4558,13 +4646,13 @@ class MainWindow(QtWidgets.QMainWindow):
         taskMenu = self.menuBar().addMenu("&Tasks")
 
         taskMenu.addAction("Set Tileset Slot", self.setSlot, QtGui.QKeySequence('Ctrl+T'))
-        taskMenu.addAction("Toggle Alpha", self.toggleAlpha, QtGui.QKeySequence('Ctrl+Shift+A'))
         taskMenu.addAction("Clear Collision Data", self.clearCollisions, QtGui.QKeySequence('Ctrl+Shift+Backspace'))
         taskMenu.addAction("Clear Object Data", self.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
 
         animMenu = self.menuBar().addMenu("&Animations")
         animMenu.addAction("Export all framesheets as .tpl", self.exportAllFramesheetsAsTpl, QtGui.QKeySequence('Ctrl+F'))
         animMenu.addAction("Export all framesheets as .png", self.exportAllFramesheetsAsPng, QtGui.QKeySequence('Ctrl+Shift+F'))
+        animMenu.addAction("Create clamped framesheet", self.createClampedFramesheet, QtGui.QKeySequence('Ctrl+Shift+C'))
 
         otherMenu = self.menuBar().addMenu("&Other")
         otherMenu.addAction("Create readme.md", self.createReadme)
