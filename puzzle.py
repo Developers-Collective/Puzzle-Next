@@ -155,7 +155,7 @@ class TilesetClass():
 #############################################################################################
 ###################################### AnimTiles Class ######################################
 
-def readString(data, pos):
+def readName(data, pos):
     c = data[pos]
     s = ''
 
@@ -165,6 +165,18 @@ def readString(data, pos):
         c = data[pos]
 
     return s
+
+
+def readDelays(data, pos):
+    c = data[pos]
+    i = 0
+
+    while c != 0:
+        c = data[pos+i]
+        i += 1
+
+    return data[pos:pos+i-1]
+
 
 class AnimTilesClass():
     '''Contains animation data'''
@@ -1451,7 +1463,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
             self.table.setCellWidget(i, 0, self.label)
 
             self.spinBox = QtWidgets.QSpinBox(self)
-            self.spinBox.setRange(1, 99999)
+            self.spinBox.setRange(1, 255)
             self.spinBox.setStyleSheet( "QSpinBox"
                                         "{"
                                         "border : 0px solid black;"
@@ -1752,6 +1764,7 @@ def addRandomisationsFromBinFile(dest, bin):
     out += '</tilesets>'
     return out
 
+
 def randomToEntry(entries, var, numbers, direction, special):
     if isinstance(var, range):
         # Regular handling
@@ -1767,6 +1780,7 @@ def randomToEntry(entries, var, numbers, direction, special):
             numbers = var
         for r in var:
             randomToEntry(entries, r, numbers, direction, special)
+
 
 def addRandomisationsFromXml(dest, xml):
     root = etree.fromstring(xml)
@@ -2088,11 +2102,12 @@ def addAnimationsFromBinFile(dest, bin):
         pos += 8
 
         # extract name
-        name = readString(bin_, entry[0])
+        name = readName(bin_, entry[0])
 
         # extract delays
-        delays = readString(bin_, entry[1])
-        delays = struct.unpack('>' + str(len(delays)) + 'B', bytes(delays, 'ascii'))
+        delays = readDelays(bin_, entry[1])
+        #delays = struct.unpack('>' + str(len(delays)) + 'B', bytes(delays, 'ascii'))
+        #delays = struct.unpack('>' + str(len(delays)) + 'B', bytes(delays, 'utf8'))
         delays = list(map(int, delays))
 
         # tilenum
@@ -2142,7 +2157,7 @@ def encodeAnimTiles(dest):
     size = len(out)
     size += len(dest.animations) * 8
 
-    strTable = ''
+    strTable = b''
     strOffset = size + len(strTable)
 
     # now, write tiles
@@ -2155,17 +2170,21 @@ def encodeAnimTiles(dest):
         if len(name) > 56:
             name = name[:56]
 
-        strTable += name + '\0'
+        strTable += bytes(name + '\0', 'utf8')
         strOffset += len(name) + 1
 
         # encode the delays
-        frameDelays = ''
+        frameDelays = b''
         for delay in animation['framedelays']:
-            frameDelays += chr(delay)
+            if delay >= 256:                    # max possible delay
+                frameDelays += bytes([255])
+                print("A framedelay had to be decreased to the maximum of 255!")
+            else:
+                frameDelays += bytes([delay])
 
         frameDelayOffset = strOffset
         strOffset += len(frameDelays) + 1
-        strTable += frameDelays + '\0'
+        strTable += frameDelays + b'\x00'
 
         tileNum = animation['tilenum']
         tilesetNum = animation['tileset']
@@ -2178,8 +2197,7 @@ def encodeAnimTiles(dest):
         out += struct.pack('>HHHBB', texNameOffset, frameDelayOffset, tileNum, tilesetNum, reverse)
 
     # and save the result
-    #print(strTable)
-    dest.bin = out + bytes(strTable, 'utf8')
+    dest.bin = out + strTable
 
 
 def addAnimationsFromText(dest, txt):
@@ -3600,7 +3618,7 @@ class tileWidget(QtWidgets.QWidget):
         lowerRightY = centerPoint.y() + self.size[1]*12
 
 
-        painter.fillRect(upperLeftX, upperLeftY, self.size[0] * 24, self.size[1]*24, QtGui.QColor(205, 205, 255))
+        painter.fillRect(upperLeftX, upperLeftY, self.size[0] * 24, self.size[1]*24, QtGui.QColor(175, 175, 175))
 
         for x, y, pix in self.tiles:
             painter.drawPixmap(upperLeftX + (x * 24), upperLeftY + (y * 24), pix)
@@ -4231,7 +4249,27 @@ class MainWindow(QtWidgets.QMainWindow):
             lowerslope = [0, 0]
 
         if Tileset.objects:
-            Tileset.slot = Tileset.objects[0].tiles[0][0][2] & 3
+            slots = []
+            for object in Tileset.objects:
+                for row in object.tiles:
+                    for tile in row:
+                        slot = tile[2] & 3
+                        if slot != 0 or tile[1] != 0:
+                            slots.append(slot)
+
+            Tileset.slot = max(slots, key=slots.count)
+            del slots
+
+            if name[:4] in ('Pa0_', 'Pa1_', 'Pa2_', 'Pa3_'):
+                slot = int(name[2])
+                if slot != Tileset.slot:
+                    # TODO: make a proper warning window
+                    QtWidgets.QMessageBox.information(self, "Warning", "Determined tileset slot ({}) does not match with the slot in the filename ({})!".format(Tileset.slot, slot))
+
+            else:
+                print("WARNING: Tileset name does not begin with \"PaX_\". Unable to verify tileset slot.")
+
+
         else:
             Tileset.slot = 1
         self.tileWidget.tilesetType.setText('Pa{0}'.format(Tileset.slot))
@@ -4783,15 +4821,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Fourth Tab
         self.frameEditor = frameEditorOverlord()
 
-
-
-
-
-
-
         # Fifth Tab
         self.animTilesEditor = animTilesOverlord()
-
 
         #Sixth Tab
         self.randTilesEditor = randTilesOverlord()
