@@ -3,7 +3,9 @@
 import archive
 import lz77
 from QCodeEditor import QCodeEditor
+import json
 import os, os.path
+import shutil
 import struct
 import sys
 import threading
@@ -17,12 +19,19 @@ except ImportError:
     from PySide2 import QtCore, QtGui, QtWidgets
 Qt = QtCore.Qt
 
+#try:
+#    from PIL import Image
+#except ImportError:
+#    print("You have to install Pillow!")
+#    os._exit(0)
 
 try:
     import nsmblib
     HaveNSMBLib = True
 except ImportError:
     HaveNSMBLib = False
+
+SplitWindow = False
 
 if hasattr(QtCore, 'pyqtSlot'): # PyQt
     QtCoreSlot = QtCore.pyqtSlot
@@ -100,13 +109,202 @@ class TilesetClass():
         def __init__(self, height, width, uslope, lslope, tilelist):
             '''Tile Constructor'''
 
-            self.height = height
-            self.width = width
-
             self.upperslope = uslope
             self.lowerslope = lslope
 
+            assert (width, height) != 0
+
+            self.height = height
+            self.width = width
+
             self.tiles = tilelist
+
+            self.determineRepetition()
+
+            if self.repeatX or self.repeatY:
+                height = len(self.tiles)
+                if self.height != height:
+                    print("WARNING: Object height mismatches with the number of rows in the object.")
+                    self.height = height
+
+                width = max(len(self.tiles[y]) for y in range(self.height))
+                if self.width  != width:
+                    print("WARNING: Object width mismatches with the maximum number of columns in the object.")
+                    self.width = width
+
+                if self.repeatX:
+                    self.determineRepetitionFinalize()
+
+            else:
+                # Fix a bug from a previous version of Puzzle
+                # where the actual width and height would
+                # mismatch with the number of tiles for the object
+
+                self.fillMissingTiles()
+
+            self.tilingMethodIdx = self.determineTilingMethod()
+
+
+        def determineRepetition(self):
+            self.repeatX = []
+            self.repeatY = []
+
+            if self.upperslope[0] != 0:
+                return
+
+            #### Find X Repetition ####
+            # You can have different X repetitions between rows, so we have to account for that
+
+            for y in range(self.height):
+                repeatXBn = -1
+                repeatXEd = -1
+
+                for x in range(len(self.tiles[y])):
+                    if self.tiles[y][x][0] & 1 and repeatXBn == -1:
+                        repeatXBn = x
+
+                    elif not self.tiles[y][x][0] & 1 and repeatXBn != -1:
+                        repeatXEd = x
+                        break
+
+                if repeatXBn != -1:
+                    if repeatXEd == -1:
+                        repeatXEd = len(self.tiles[y])
+
+                    self.repeatX.append((y, repeatXBn, repeatXEd))
+
+            #### Find Y Repetition ####
+
+            repeatYBn = -1
+            repeatYEd = -1
+
+            for y in range(self.height):
+                if len(self.tiles[y]) and self.tiles[y][0][0] & 2:
+                    if repeatYBn == -1:
+                        repeatYBn = y
+
+                elif repeatYBn != -1:
+                    repeatYEd = y
+                    break
+
+            if repeatYBn != -1:
+                if repeatYEd == -1:
+                    repeatYEd = self.height
+
+                self.repeatY = [repeatYBn, repeatYEd]
+
+
+        def determineRepetitionFinalize(self):
+            if self.repeatX:
+                # If any X repetition is present, fill in rows which didn't have X repetition set
+                ## Should never happen, unless the tileset is broken
+                ## Additionally, sort the list
+                repeatX = []
+                for y in range(self.height):
+                    for row, start, end in self.repeatX:
+                        if y == row:
+                            repeatX.append([start, end])
+                            break
+
+                    else:
+                        # Get the start and end X offsets for the row
+                        start = 0
+                        end = len(self.tiles[y])
+
+                        repeatX.append([start, end])
+
+                self.repeatX = repeatX
+
+
+        def fillMissingTiles(self):
+            realH = len(self.tiles)
+            while realH > self.height:
+                del self.tiles[-1]
+                realH -= 1
+
+            for row in self.tiles:
+                realW = len(row)
+                while realW > self.width:
+                    del row[-1]
+                    realW -= 1
+
+            for row in self.tiles:
+                realW = len(row)
+                while realW < self.width:
+                    row.append((0, 0, 0))
+                    realW += 1
+
+            while realH < self.height:
+                self.tiles.append([(0, 0, 0) for _ in range(self.width)])
+                realH += 1
+
+
+        def createRepetitionX(self):
+            self.repeatX = []
+
+            for y in range(self.height):
+                for x in range(len(self.tiles[y])):
+                    self.tiles[y][x] = (self.tiles[y][x][0] | 1, self.tiles[y][x][1], self.tiles[y][x][2])
+
+                self.repeatX.append([0, len(self.tiles[y])])
+
+
+        def createRepetitionY(self, y1, y2):
+            self.clearRepetitionY()
+
+            for y in range(y1, y2):
+                for x in range(len(self.tiles[y])):
+                    self.tiles[y][x] = (self.tiles[y][x][0] | 2, self.tiles[y][x][1], self.tiles[y][x][2])
+
+            self.repeatY = [y1, y2]
+
+
+        def clearRepetitionX(self):
+            self.fillMissingTiles()
+
+            for y in range(self.height):
+                for x in range(self.width):
+                    self.tiles[y][x] = (self.tiles[y][x][0] & ~1, self.tiles[y][x][1], self.tiles[y][x][2])
+
+            self.repeatX = []
+
+
+        def clearRepetitionY(self):
+            for y in range(self.height):
+                for x in range(len(self.tiles[y])):
+                    self.tiles[y][x] = (self.tiles[y][x][0] & ~2, self.tiles[y][x][1], self.tiles[y][x][2])
+
+            self.repeatY = []
+
+
+        def clearRepetitionXY(self):
+            self.clearRepetitionX()
+            self.clearRepetitionY()
+
+
+        def determineTilingMethod(self):
+            if self.upperslope[0] == 0x93:
+                return 7
+
+            elif self.upperslope[0] == 0x92:
+                return 6
+
+            elif self.upperslope[0] == 0x91:
+                return 5
+
+            elif self.upperslope[0] == 0x90:
+                return 4
+
+            elif self.repeatX and self.repeatY:
+                return 3
+
+            elif self.repeatY:
+                return 2
+
+            elif self.repeatX:
+                return 1
+
+            return 0
 
 
     def __init__(self):
@@ -118,6 +316,7 @@ class TilesetClass():
         self.unknownFiles = {}
 
         self.slot = 0
+        self.placeNullChecked = False
 
 
     def addTile(self, image, noalpha, bytelist = (0, 0, 0, 0, 0, 0, 0, 0)):
@@ -126,12 +325,27 @@ class TilesetClass():
         self.tiles.append(self.Tile(image, noalpha, bytelist))
 
 
-    def addObject(self, height = 1, width = 1,  uslope = [0, 0], lslope = [0, 0], tilelist = [[(0, 0, 0)]]):
+    def getUsedTiles(self):
+        usedTiles = []
+
+        for object in self.objects:
+            for i in range(len(object.tiles)):
+                for tile in object.tiles[i]:
+                    if not tile[2] & 3 and Tileset.slot:  # Pa0 tile 0 used in another slot, don't count it
+                        continue
+
+                    if tile[1] not in usedTiles:
+                        usedTiles.append(tile[1])
+
+        return usedTiles
+
+
+    def addObject(self, height = 1, width = 1,  uslope = [0, 0], lslope = [0, 0], tilelist = None, new = False):
         '''Adds a new object'''
 
         global Tileset
 
-        if tilelist == [[(0, 0, 0)]]:
+        if new:
             tilelist = [[(0, 0, Tileset.slot)]]
 
         self.objects.append(self.Object(height, width, uslope, lslope, tilelist))
@@ -155,27 +369,15 @@ class TilesetClass():
 #############################################################################################
 ###################################### AnimTiles Class ######################################
 
-def readName(data, pos):
-    c = data[pos]
-    s = ''
-
-    while c != 0:
-        s += chr(c)
-        pos += 1
-        c = data[pos]
-
-    return s
+def readNullTerminated(data, pos):
+    end = data.find(b'\0', pos)
+    if end == -1:
+        return data[pos:]
+    return data[pos:end]
 
 
-def readDelays(data, pos):
-    c = data[pos]
-    i = 0
-
-    while c != 0:
-        c = data[pos+i]
-        i += 1
-
-    return data[pos:pos+i-1]
+def readString(data, pos):
+    return readNullTerminated(data, pos).decode('utf8')
 
 
 class AnimTilesClass():
@@ -200,7 +402,7 @@ class AnimTilesClass():
 ###################################### RandTiles Class ######################################
 
 class RandTilesClass():
-    '''Contains randomisation data'''
+    '''Contains randomization data'''
 
     def __init__(self):
         '''Constructor'''
@@ -604,7 +806,7 @@ class paletteWidget(QtWidgets.QWidget):
 
 
     def swapParams(self):
-        for item in range(12):
+        for item in range(len(self.ParameterList)):
             if self.coreWidgets[item].isChecked():
                 self.parameters.clear()
                 for option in self.ParameterList[item]:
@@ -831,6 +1033,7 @@ def SetupFramesheetModel(self, animdata):
 def RGB4A3FramesheetEncode(tex):
     shorts = []
     colorCache = {}
+
     for Yoffset in range(0, tex.height(), 4):
         for Xoffset in range(0,32,4):
             for ypixel in range(Yoffset, Yoffset + 4):
@@ -864,7 +1067,7 @@ def RGB4A3FramesheetEncode(tex):
                             # 1rrrrrgggggbbbbb
                             rgba = blue | (green << 5) | (red << 10) | (0x8000)
 
-                            colorCache[pixel] = rgba
+                        colorCache[pixel] = rgba
 
                     shorts.append(rgba)
     return struct.pack('>{0}H'.format(len(shorts)), *shorts)
@@ -929,7 +1132,7 @@ class framesheetOverlord(QtWidgets.QWidget):
 
         framesheet, path = self.openFs()
         if framesheet is None: return
-        print(framesheet)
+        #print(framesheet)
         base = os.path.basename(path)
         name = os.path.splitext(base)[0]
 
@@ -1166,11 +1369,9 @@ class frameEditorOverlord(QtWidgets.QWidget):
         coreLayout.setAlignment(Qt.AlignTop)
         self.coreType.setLayout(coreLayout)
 
-
         self.preview = QtWidgets.QLabel('Preview:')
         self.previewLabel = QtWidgets.QLabel(self)
         self.previewLabel.setAlignment(Qt.AlignRight)
-        self.playPreview = True
         self.thread = threading.Thread(target = self.play, args = ())
         self.thread.start()
 
@@ -1182,6 +1383,8 @@ class frameEditorOverlord(QtWidgets.QWidget):
 
 
         # Connections
+        self.table.cellClicked.connect(self.tableClicked)
+
         self.importFramesheet.released.connect(self.importInfo)
         self.exportFramesheet.released.connect(self.exportInfo)
 
@@ -1215,6 +1418,62 @@ class frameEditorOverlord(QtWidgets.QWidget):
 
         self.texname = ""
         self.framenum = 0
+
+
+    def tableClicked(self, row, column):
+        if column != 0:
+            return
+
+        centerPoint = self.table.cellWidget(row, column).contentsRect().center()
+
+        frameMenu = QtWidgets.QMenu(self)
+
+        frameMenu.addAction('Export', self.exportFrame)
+        frameMenu.addAction('Replace', self.replaceFrame)
+
+        frameMenu.exec_(QtWidgets.QWidget.mapToGlobal(self.table.cellWidget(row, column), centerPoint))
+
+
+    def exportFrame(self):
+        i = self.table.currentRow()
+
+        path = QtWidgets.QFileDialog.getSaveFileName(self, 'Framesheet', '{}_{}.png'.format(self.texname, i+1), 'Framesheet (*.png)')[0]
+        if not path: return
+
+        pixmap = window.frames["BG_tex/{0}.bin".format(self.texname)][i]
+        pixmap.save(path, "PNG")
+
+
+    def replaceFrame(self):
+        frame, temp = window.framesheetWidget.openFs(False)
+        if frame is None: return
+
+        if not frame.width() == 32 or not frame.height() == 32:
+            QtWidgets.QMessageBox.warning(self, "Open frame", "The frame has incorrect dimensions.\nNeeded sizes: 32x32 pixel.", QtWidgets.QMessageBox.Cancel)
+            return
+
+        i = self.table.currentRow()
+        window.frames["BG_tex/{0}.bin".format(self.texname)][i] = frame
+        item = window.framesheetmodel.itemFromIndex(window.framesheetList.currentIndex())
+        icon = item.icon()
+        pixmap = icon.pixmap(icon.availableSizes()[0])
+
+        painter = QtGui.QPainter(pixmap)
+        painter.drawPixmap(0, 32*i, frame)
+        painter.end()
+        del painter
+
+        image = pixmap.toImage().convertToFormat(QtGui.QImage.Format_ARGB32);
+        data = RGB4A3FramesheetEncode(image)
+        Tileset.animdata["BG_tex/{0}.bin".format(self.texname)] = data
+        item.setIcon(QtGui.QIcon(pixmap))
+
+        self.table.cellWidget(i, 0).setPixmap(frame)
+
+        window.framesheetList.update()
+        self.update()
+
+
 
 
     def play(self):
@@ -1331,7 +1590,6 @@ class frameEditorOverlord(QtWidgets.QWidget):
         self.popup.show()
 
 
-
     def fromAnimTiles(self):
         global AnimTiles
         global frameEditorData
@@ -1368,7 +1626,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
     def fromTxt(self):
         self.popup.hide()
 
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .txt file", '', "AnimTiles File (*.txt)")[0]
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .txt file", window.animTilesTXTDialoguePath, "AnimTiles File (*.txt)")[0]
         if not path: return
 
         temp = type('frameEditorClass', (), {})()
@@ -1386,7 +1644,6 @@ class frameEditorOverlord(QtWidgets.QWidget):
             framenum = len(Tileset.animdata["BG_tex/{0}.bin".format(texname)])//2048
             if texname in frameEditorData.animations:
                 frameEditorData.animations[texname].extend(getAllEntriesWithName(temp, texname, framenum, removeFromAnimations=True))
-                print(frameEditorData.animations)
             else:
                 frameEditorData.animations[texname] = getAllEntriesWithName(temp, texname, framenum, removeFromAnimations=True)
             i += 1
@@ -1404,7 +1661,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
             msgBox.setDetailedText(text)
             ret = msgBox.exec()
             if ret == QtWidgets.QMessageBox.Save:
-                fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', '', 'AnimTiles File (*.txt)')[0]
+                fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', window.animTilesTXTDialoguePath, 'AnimTiles File (*.txt)')[0]
                 if not fn: return
 
                 with open(fn, 'w') as f:
@@ -1415,7 +1672,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
         global frameEditorData
         self.popup.hide()
 
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', '', 'AnimTiles File (*.txt)')[0]
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', window.animTilesTXTDialoguePath, 'AnimTiles File (*.txt)')[0]
         if not fn: return
 
         temp = type('animTilesTemp', (), {})()
@@ -1432,12 +1689,6 @@ class frameEditorOverlord(QtWidgets.QWidget):
 
     def setFramesheet(self, tabIndex):
         if not tabIndex == 3:
-            try:
-                # save to unsaved if not everything is empty or sth?
-                print(self.table.cellWidget(0, 1).value())
-            except:
-                print("Nothing here yet")
-
             return
 
         index = window.framesheetList.currentIndex()
@@ -1474,13 +1725,13 @@ class frameEditorOverlord(QtWidgets.QWidget):
 
 
 
-        print(window.frames)
+        #print(window.frames)
 
         if self.texname in frameEditorData.animations:
             self.opened = frameEditorData.animations[self.texname]
         else:
             self.opened = []
-        print(self.opened)
+        #print(self.opened)
 
 
         self.setupComboBox()
@@ -1537,10 +1788,8 @@ class frameEditorOverlord(QtWidgets.QWidget):
             self.setContents(self.list.currentIndex())
 
 
-
-
     def setContents(self, index):
-        print(self.list.count())
+        #print(self.list.count())
         if index == -1: return
         if self.list.count()-1 == index:    #create new info
             animation = {}
@@ -1561,16 +1810,12 @@ class frameEditorOverlord(QtWidgets.QWidget):
                     self.table.cellWidget(i, 1).setValue(delay)
             #self.setupComboBox()
 
-    def setNewTableContents(self):
-        print("test")
-
-    def getComboBoxInfo(self):
-        print(" ")
 
     def deleteCurrentlySelectedEntry(self):
         if len(self.opened) > self.list.currentIndex() and not self.list.currentIndex() == -1:
             del self.opened[self.list.currentIndex()]
             self.setupComboBox()
+
 
 #############################################################################################
 #################################### randTiles Widget #######################################
@@ -1632,16 +1877,17 @@ class randTilesOverlord(QtWidgets.QWidget):
         self.text.highlighter.rehighlight()
 
 
-    def importFromBin(self):
+    def importFromBin(self, path=""):
         RandTiles.clear()
 
         self.isOpeningFile = True
 
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open RandTiles .bin file", '', "RandTiles File (*.bin)")[0]
-        if not path: return
+        if not path:
+            path = QtWidgets.QFileDialog.getOpenFileName(self, "Open RandTiles .bin file", window.randTilesBINDialoguePath, "RandTiles File (*.bin)")[0]
+            if not path: return
 
         try:
-            xml = addRandomisationsFromBinFile(RandTiles, path)
+            xml = addRandomizationsFromBinFile(RandTiles, path)
         except Exception as e:
             self.exceptionLabel.setText('Exception: {}'.format(str(e)))
             return
@@ -1649,17 +1895,18 @@ class randTilesOverlord(QtWidgets.QWidget):
         self.text.setPlainText(xml)
 
 
-    def importFromXml(self):
+    def importFromXml(self, path=""):
         self.isOpeningFile = True
 
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open RandTiles .xml file", '', "RandTiles File (*.xml)")[0]
-        if not path: return
+        if not path:
+            path = QtWidgets.QFileDialog.getOpenFileName(self, "Open RandTiles .xml file", window.randTilesXMLDialoguePath, "RandTiles File (*.xml)")[0]
+            if not path: return
 
         with open(path, 'r') as file:
             xml = file.read()
         
         try:
-            addRandomisationsFromXml(RandTiles, xml)
+            addRandomizationsFromXml(RandTiles, xml)
         except Exception as e:
             self.exceptionLabel.setText('Exception: {}'.format(str(e)))
             return
@@ -1672,7 +1919,7 @@ class randTilesOverlord(QtWidgets.QWidget):
             self.isOpeningFile = False
         else:
             try:
-                addRandomisationsFromXml(RandTiles, self.text.toPlainText())
+                addRandomizationsFromXml(RandTiles, self.text.toPlainText())
                 labelMessage = 'Current xml is valid!'
             except Exception as e:
                 labelMessage = 'Exception: {}'.format(str(e))
@@ -1680,7 +1927,7 @@ class randTilesOverlord(QtWidgets.QWidget):
             self.exceptionLabel.setText(labelMessage)
 
     def exportToBin(self):
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save RandTiles .bin file', '', 'RandTiles File (*.bin)')[0]
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save RandTiles .bin file', window.randTilesBINDialoguePath, 'RandTiles File (*.bin)')[0]
         if not fn: return
 
         encodeRandTiles(RandTiles)
@@ -1690,7 +1937,7 @@ class randTilesOverlord(QtWidgets.QWidget):
 
 
     def exportToXml(self):
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save RandTiles .xml file', '', 'RandTiles File (*.xml)')[0]
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save RandTiles .xml file', window.randTilesXMLDialoguePath, 'RandTiles File (*.xml)')[0]
         if not fn: return
 
         with open(fn, 'w') as f:
@@ -1701,7 +1948,7 @@ class randTilesOverlord(QtWidgets.QWidget):
 ################################### RandTiles functions #####################################
 
 
-def addRandomisationsFromBinFile(dest, bin):
+def addRandomizationsFromBinFile(dest, bin):
     with open(bin, 'rb') as f:
         bin_ = f.read()
 
@@ -1756,12 +2003,13 @@ def addRandomisationsFromBinFile(dest, bin):
             line += 'direction="{}" '.format(types[entry['type']])
             if entry['special'] != 0:
                 line += 'special="{}" '.format(specials[entry['special']])
-            line += ' />\n'
+            line += '/>\n'
             out += line
 
         out += '    </group>\n'
 
     out += '</tilesets>'
+
     return out
 
 
@@ -1782,7 +2030,7 @@ def randomToEntry(entries, var, numbers, direction, special):
             randomToEntry(entries, r, numbers, direction, special)
 
 
-def addRandomisationsFromXml(dest, xml):
+def addRandomizationsFromXml(dest, xml):
     root = etree.fromstring(xml)
     
     sections = []
@@ -1820,6 +2068,8 @@ def addRandomisationsFromXml(dest, xml):
                     entries.append({'lowerBound': 10, 'upperBound': 15, 'type': 1, 'special': 0, 'tiles': [10, 11, 12, 13, 14, 15]})
                     entries.append({'lowerBound': 42, 'upperBound': 47, 'type': 1, 'special': 0, 'tiles': [42, 43, 44, 45, 46, 47]})
                     entries.append({'lowerBound': 26, 'upperBound': 31, 'type': 3, 'special': 0, 'tiles': [26, 27, 28, 29, 30, 31]})
+                else:
+                    raise ValueError("The attribute name has to be 'regular-terrain' or 'sub-terrain'!")
                 continue
 
             # [list | range] = input space
@@ -1854,10 +2104,9 @@ def addRandomisationsFromXml(dest, xml):
                     special = 0b01
                 elif special_s == 'double-bottom':
                     special = 0b10
-            
-            
+
             randomToEntry(entries, list_, values, direction, special)
-            
+
         sections.append({'nameList' : nameList, 'entries' : entries})
 
     dest.sections = sections
@@ -1876,98 +2125,80 @@ def encodeRandTiles(dest):
     for section in dest.sections:
         section['offset'] = currentOffset
         currentOffset += 8
-        
+
         for entry in section['entries']:
             entry['offset'] = currentOffset
             allEntryData.append(entry['tiles'])
-            #print(entry)
             currentOffset += 8
-        
+
     nameListOffsets = {}
     for section in dest.sections:
         nameListOffsets[str(section['nameList'])] = currentOffset
         currentOffset += 4 + (4 * len(section['nameList']))
-    
+
     dataOffsets = {}
     allEntryData = unique(allEntryData)
-    
+
     for data in allEntryData:
         dataOffsets[str(data)] = currentOffset
         currentOffset += len(data)
-        
+
     nameOffsets = {}
     for section in dest.sections:
         for name in section['nameList']:
             nameOffsets[name] = currentOffset
             currentOffset += len(name) + 1
-    
-    #print("nameOffsets: ")
-    #print(nameOffsets)
-    #print("dataOffsets: ")
-    #print(dataOffsets)
-    #print("nameListOffsets: ")
-    #print(nameListOffsets)
 
     header = struct.pack('>4sI', b'NwRT', len(dest.sections))
     offsets = b''
     for section in dest.sections:
         offsets += struct.pack('>I', section['offset'])
-    
+
     def getSectionData(section):
         nameListOffset = nameListOffsets[str(section['nameList'])] - section['offset']
-        
+
         entryCount = len(section['entries'])
-        
+
         entryData = b''
         for entry in section['entries']:
             lowerBound = entry['lowerBound']
             upperBound = entry['upperBound']
-            
+
             count = len(entry['tiles'])
-            
+
             type = entry['type'] | (entry['special'] << 2)
-            
+
             numOffset = dataOffsets[str(entry['tiles'])] - entry['offset']
-            
+
             entryData += struct.pack('>BBBBI', lowerBound, upperBound, count, type, numOffset)
-    
+
         return struct.pack('>II', nameListOffset, entryCount) + entryData
-    
+
     def getnameListData(section):
         count = struct.pack('>I', len(section['nameList']))
         cOffsets = b''
         for name in section['nameList']:
             cOffsets += struct.pack('>I', nameOffsets[name] - nameListOffsets[str(section['nameList'])])
-        
+
         return count + cOffsets
-    
+
     sectionData = []
     nameListData = []
     for section in dest.sections:
         sectionData.append(getSectionData(section))
         nameListData.append(getnameListData(section))
-    
-    #print(dest.sections)
-    
+
     output = [header, offsets]
     output += sectionData
     output += nameListData
     for entryData in allEntryData:
-        #print(" ")#entryData)
-        #output += struct.pack('>{}s'.format(len(entryData)), entryData)
         output += [bytes(entryData)]
-            
+
     for section in dest.sections:
-        #nameList = '\0'.join(section['nameList'])
-        #output += struct.pack('>{}s'.format(len(nameList)), nameList)
-        #output += b'\x00'
         output += [bytes('\0'.join(section['nameList']), 'utf-8')]
         output += [b'\x00']
-    #    out += struct.pack('>HHHBB', texNameOffset, frameDelayOffset, tileNum, tilesetNum, reverse)
 
     # and save the result
-    #print(strTable)
-    #print(output)
     dest.bin = b''.join(output)#out#dest.bin = out + bytes(strTable, 'utf8')
 
 
@@ -2023,12 +2254,13 @@ class animTilesOverlord(QtWidgets.QWidget):
         self.text.highlighter.rehighlight()
 
 
-    def importFromBin(self):
+    def importFromBin(self, path=""):
         global AnimTiles
         AnimTiles.clear()
 
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .bin file", '', "AnimTiles File (*.bin)")[0]
-        if not path: return
+        if not path:
+            path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .bin file", window.animTilesBINDialoguePath, "AnimTiles File (*.bin)")[0]
+            if not path: return
 
         addAnimationsFromBinFile(AnimTiles, path)
         txt = animationsToText(AnimTiles)
@@ -2036,12 +2268,13 @@ class animTilesOverlord(QtWidgets.QWidget):
         self.text.setPlainText(txt)
 
 
-    def importFromTxt(self):
+    def importFromTxt(self, path=""):
         global AnimTiles
         AnimTiles.clear()
 
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .txt file", '', "AnimTiles File (*.txt)")[0]
-        if not path: return
+        if not path:
+            path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .txt file", window.animTilesTXTDialoguePath, "AnimTiles File (*.txt)")[0]
+            if not path: return
 
         with open(path, 'r') as file:
             txt = file.read()
@@ -2057,7 +2290,7 @@ class animTilesOverlord(QtWidgets.QWidget):
     def exportToBin(self):
         global AnimTiles
 
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .bin file', '', 'AnimTiles File (*.bin)')[0]
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .bin file', window.animTilesBINDialoguePath, 'AnimTiles File (*.bin)')[0]
         if not fn: return
 
         encodeAnimTiles(AnimTiles)
@@ -2067,7 +2300,7 @@ class animTilesOverlord(QtWidgets.QWidget):
 
 
     def exportToTxt(self):
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', '', 'AnimTiles File (*.txt)')[0]
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save AnimTiles .txt file', window.animTilesTXTDialoguePath, 'AnimTiles File (*.txt)')[0]
         if not fn: return
 
         with open(fn, 'w') as f:
@@ -2102,12 +2335,10 @@ def addAnimationsFromBinFile(dest, bin):
         pos += 8
 
         # extract name
-        name = readName(bin_, entry[0])
+        name = readString(bin_, entry[0])
 
         # extract delays
-        delays = readDelays(bin_, entry[1])
-        #delays = struct.unpack('>' + str(len(delays)) + 'B', bytes(delays, 'ascii'))
-        #delays = struct.unpack('>' + str(len(delays)) + 'B', bytes(delays, 'utf8'))
+        delays = readNullTerminated(bin_, entry[1])
         delays = list(map(int, delays))
 
         # tilenum
@@ -2261,18 +2492,22 @@ class objectList(QtWidgets.QListView):
     def __init__(self, parent=None):
         super(objectList, self).__init__(parent)
 
+        self.noneIdx = self.currentIndex()
 
-        self.setIconSize(QtCore.QSize(1000, 1000))
+        self.setIconSize(QtCore.QSize(10000, 10000))
         self.setUniformItemSizes(False)
         self.setBackgroundRole(QtGui.QPalette.BrightText)
         self.setWrapping(False)
-        self.setMinimumWidth(200)
-        self.setMaximumWidth(400)
+        self.setMinimumWidth(300)
+        self.setMaximumWidth(300)
 
     def setHeight(self):
         height = getObjectMaxSize()
         self.setIconSize(QtCore.QSize(32, height))
         #self.setGridSize(QtCore.QSize(200,height+50))
+
+    def clearCurrentIndex(self):
+        self.setCurrentIndex(self.noneIdx)
 
 
 def getObjectMaxSize():
@@ -2300,7 +2535,7 @@ def SetupObjectModel(self, objects, tiles):
 
         for i in range(len(object.tiles)):
             for tile in object.tiles[i]:
-                if (Tileset.slot == 0) or ((tile[2] & 3) != 0):
+                if Tileset.slot == (tile[2] & 3):
                     painter.drawPixmap(Xoffset, Yoffset, tiles[tile[1]].image)
                 Xoffset += 24
             Xoffset = 0
@@ -2326,10 +2561,11 @@ class displayWidget(QtWidgets.QListView):
     def __init__(self, parent=None):
         super(displayWidget, self).__init__(parent)
 
-        self.setMinimumWidth(424)
-        self.setMaximumWidth(424)
-        self.setMinimumHeight(424)
-        self.setMaximumHeight(424)
+        self.setMinimumWidth(403)
+        self.setMaximumWidth(403)
+        self.setMinimumHeight(403)
+        self.setMaximumHeight(403)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setDragEnabled(True)
         self.setViewMode(QtWidgets.QListView.IconMode)
         self.setIconSize(QtCore.QSize(24,24))
@@ -2372,6 +2608,7 @@ class displayWidget(QtWidgets.QListView):
 
             # Collision Overlays
             info = window.infoDisplay
+            if index.row() >= len(Tileset.tiles): return
             curTile = Tileset.tiles[index.row()]
 
             if info.collisionOverlay.isChecked():
@@ -2793,6 +3030,402 @@ class displayWidget(QtWidgets.QListView):
 ############################ Tile widget for drag n'drop Objects ############################
 
 
+class RepeatXModifiers(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setVisible(False)
+
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.layout.setSpacing(0)
+        self.layout.setContentsMargins(0,0,0,0)
+
+        self.spinboxes = []
+        self.buttons = []
+
+        self.updating = False
+
+
+    def update(self):
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        if not object.repeatX:
+            return
+
+        self.updating = True
+
+        assert len(self.spinboxes) == len(self.buttons)
+
+        height = object.height
+        numRows = len(self.spinboxes)
+
+        if numRows < height:
+            for i in range(numRows, height):
+                layout = QtWidgets.QHBoxLayout()
+                layout.setSpacing(0)
+                layout.setContentsMargins(0,0,0,0)
+
+                spinbox1 = QtWidgets.QSpinBox()
+                spinbox1.setFixedSize(50, 24)
+                spinbox1.valueChanged.connect(lambda val, i=i: self.startValChanged(val, i))
+                layout.addWidget(spinbox1)
+
+                spinbox2 = QtWidgets.QSpinBox()
+                spinbox2.setFixedSize(50, 24)
+                spinbox2.valueChanged.connect(lambda val, i=i: self.endValChanged(val, i))
+                layout.addWidget(spinbox2)
+
+                button1 = QtWidgets.QPushButton('+')
+                button1.setFixedSize(24, 24)
+                button1.released.connect(lambda i=i: self.addTile(i))
+                layout.addWidget(button1)
+
+                button2 = QtWidgets.QPushButton('-')
+                button2.setFixedSize(24, 24)
+                button2.released.connect(lambda i=i: self.removeTile(i))
+                layout.addWidget(button2)
+
+                self.layout.addLayout(layout)
+                self.spinboxes.append((spinbox1, spinbox2))
+                self.buttons.append((button1, button2))
+
+        elif height < numRows:
+            for i in reversed(range(height, numRows)):
+                layout = self.layout.itemAt(i).layout()
+                self.layout.removeItem(layout)
+
+                spinbox1, spinbox2 = self.spinboxes[i]
+                layout.removeWidget(spinbox1)
+                layout.removeWidget(spinbox2)
+
+                spinbox1.setParent(None)
+                spinbox2.setParent(None)
+
+                del self.spinboxes[i]
+
+                button1, button2 = self.buttons[i]
+                layout.removeWidget(button1)
+                layout.removeWidget(button2)
+
+                button1.setParent(None)
+                button2.setParent(None)
+
+                del self.buttons[i]
+
+        for y in range(height):
+            spinbox1, spinbox2 = self.spinboxes[y]
+
+            spinbox1.setRange(0, object.repeatX[y][1]-1)
+            spinbox2.setRange(object.repeatX[y][0]+1, len(object.tiles[y]))
+
+            spinbox1.setValue(object.repeatX[y][0])
+            spinbox2.setValue(object.repeatX[y][1])
+
+        self.updating = False
+        self.setFixedHeight(height * 24)
+
+
+    def startValChanged(self, val, y):
+        if self.updating:
+            return
+
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        object.repeatX[y][0] = val
+
+        for x in range(len(object.tiles[y])):
+            if x >= val and x < object.repeatX[y][1]:
+                object.tiles[y][x] = (object.tiles[y][x][0] | 1, object.tiles[y][x][1], object.tiles[y][x][2])
+
+            else:
+                object.tiles[y][x] = (object.tiles[y][x][0] & ~1, object.tiles[y][x][1], object.tiles[y][x][2])
+
+        spinbox1, spinbox2 = self.spinboxes[y]
+        spinbox1.setRange(0, object.repeatX[y][1]-1)
+        spinbox2.setRange(val+1, len(object.tiles[y]))
+
+        window.tileWidget.tiles.update()
+
+
+    def endValChanged(self, val, y):
+        if self.updating:
+            return
+
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        object.repeatX[y][1] = val
+
+        for x in range(len(object.tiles[y])):
+            if x >= object.repeatX[y][0] and x < val:
+                object.tiles[y][x] = (object.tiles[y][x][0] | 1, object.tiles[y][x][1], object.tiles[y][x][2])
+
+            else:
+                object.tiles[y][x] = (object.tiles[y][x][0] & ~1, object.tiles[y][x][1], object.tiles[y][x][2])
+
+        spinbox1, spinbox2 = self.spinboxes[y]
+        spinbox1.setRange(0, val-1)
+        spinbox2.setRange(object.repeatX[y][0]+1, len(object.tiles[y]))
+
+        window.tileWidget.tiles.update()
+
+
+    def addTile(self, y):
+        if self.updating:
+            return
+
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        pix = QtGui.QPixmap(24,24)
+        pix.fill(QtGui.QColor(0,0,0,0))
+
+        window.tileWidget.tiles.tiles[y].append(pix)
+
+        object = Tileset.objects[index]
+        if object.repeatY and y >= object.repeatY[0] and y < object.repeatY[1]:
+            object.tiles[y].append((2, 0, 0))
+
+        else:
+            object.tiles[y].append((0, 0, 0))
+
+        object.width = max(len(object.tiles[y]), object.width)
+
+        self.update()
+
+        window.tileWidget.tiles.size[0] = object.width
+        window.tileWidget.tiles.setMinimumSize(window.tileWidget.tiles.size[0]*24 + 12, window.tileWidget.tiles.size[1]*24 + 12)
+
+        window.tileWidget.tiles.update()
+        window.tileWidget.tiles.updateList()
+
+
+    def removeTile(self, y):
+        if self.updating:
+            return
+
+        if window.tileWidget.tiles.size[0] == 1:
+            return
+
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+
+        row = window.tileWidget.tiles.tiles[y]
+        if len(row) > 1:
+            row.pop()
+        else:
+            return
+                
+        row = object.tiles[y]
+        if len(row) > 1:
+            row.pop()
+        else:
+            return
+
+        start, end = object.repeatX[y]
+        end = min(end, len(row))
+        start = min(start, end - 1)
+
+        if [start, end] != object.repeatX[y]:
+            object.repeatX[y] = [start, end]
+            for x in range(len(row)):
+                if x >= start and x < end:
+                    row[x] = (row[x][0] | 1, row[x][1], row[x][2])
+
+                else:
+                    row[x] = (row[x][0] & ~1, row[x][1], row[x][2])
+
+        object.width = max(len(row) for row in object.tiles)
+
+        self.update()
+
+        window.tileWidget.tiles.size[0] = object.width
+        window.tileWidget.tiles.setMinimumSize(window.tileWidget.tiles.size[0]*24 + 12, window.tileWidget.tiles.size[1]*24 + 12)
+
+        window.tileWidget.tiles.update()
+        window.tileWidget.tiles.updateList()
+
+
+class RepeatYModifiers(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setVisible(False)
+
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0,0,0,0)
+
+        spinbox1 = QtWidgets.QSpinBox()
+        spinbox1.setFixedSize(50, 24)
+        spinbox1.valueChanged.connect(self.startValChanged)
+        layout.addWidget(spinbox1)
+
+        spinbox2 = QtWidgets.QSpinBox()
+        spinbox2.setFixedSize(50, 24)
+        spinbox2.valueChanged.connect(self.endValChanged)
+        layout.addWidget(spinbox2)
+
+        self.spinboxes = (spinbox1, spinbox2)
+        self.updating = False
+
+        self.setFixedWidth(102)
+
+
+    def update(self):
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        if not object.repeatY:
+            return
+
+        self.updating = True
+
+        spinbox1, spinbox2 = self.spinboxes
+        spinbox1.setRange(0, object.repeatY[1]-1)
+        spinbox2.setRange(object.repeatY[0]+1, object.height)
+
+        spinbox1.setValue(object.repeatY[0])
+        spinbox2.setValue(object.repeatY[1])
+
+        self.updating = False
+
+
+    def startValChanged(self, val):
+        if self.updating:
+            return
+
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        object.createRepetitionY(val, object.repeatY[1])
+
+        spinbox1, spinbox2 = self.spinboxes
+        spinbox1.setRange(0, object.repeatY[1]-1)
+        spinbox2.setRange(object.repeatY[0]+1, object.height)
+
+        window.tileWidget.tiles.update()
+
+
+    def endValChanged(self, val):
+        if self.updating:
+            return
+
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        object.createRepetitionY(object.repeatY[0], val)
+
+        spinbox1, spinbox2 = self.spinboxes
+        spinbox1.setRange(0, object.repeatY[1]-1)
+        spinbox2.setRange(object.repeatY[0]+1, object.height)
+
+        window.tileWidget.tiles.update()
+
+
+class SlopeLineModifier(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setVisible(False)
+
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0,0,0,0)
+
+        self.spinbox = QtWidgets.QSpinBox()
+        self.spinbox.setFixedSize(50, 24)
+        self.spinbox.valueChanged.connect(self.valChanged)
+        layout.addWidget(self.spinbox)
+
+        self.updating = False
+
+        self.setFixedWidth(51)
+
+
+    def update(self):
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        if object.upperslope[0] == 0:
+            return
+
+        self.updating = True
+
+        self.spinbox.setRange(1, object.height)
+        self.spinbox.setValue(object.upperslope[1])
+
+        self.updating = False
+
+
+    def valChanged(self, val):
+        if self.updating:
+            return
+
+        global Tileset
+
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        if object.height == 1:
+            object.upperslope[1] = 1
+            object.lowerslope = [0, 0]
+
+        else:
+            object.upperslope[1] = val
+            object.lowerslope = [0x84, object.height - val]
+
+        tiles = window.tileWidget.tiles
+
+        if object.upperslope[0] & 2:
+            tiles.slope = -object.upperslope[1]
+
+        else:
+            tiles.slope = object.upperslope[1]
+
+        tiles.update()
+
+
 class tileOverlord(QtWidgets.QWidget):
 
     def __init__(self):
@@ -2804,6 +3437,12 @@ class tileOverlord(QtWidgets.QWidget):
         self.addObject = QtWidgets.QPushButton('Add')
         self.removeObject = QtWidgets.QPushButton('Remove')
 
+        global Tileset
+
+        self.placeNull = QtWidgets.QPushButton('Null')
+        self.placeNull.setCheckable(True)
+        self.placeNull.setChecked(Tileset.placeNullChecked)
+
         self.addRow = QtWidgets.QPushButton('+')
         self.removeRow = QtWidgets.QPushButton('-')
 
@@ -2811,16 +3450,12 @@ class tileOverlord(QtWidgets.QWidget):
         self.removeColumn = QtWidgets.QPushButton('-')
 
         self.tilingMethod = QtWidgets.QComboBox()
-        self.tilesetType = QtWidgets.QLabel('Pa0')
+        self.tilesetType = QtWidgets.QLabel('Pa%d' % Tileset.slot)
 
-        self.tilingMethod.addItems(['Repeat',
-                                    'Stretch Center',
-                                    'Stretch X',
-                                    'Stretch Y',
-                                    'Repeat Bottom',
-                                    'Repeat Top',
-                                    'Repeat Left',
-                                    'Repeat Right',
+        self.tilingMethod.addItems(['No Repetition',
+                                    'Repeat X',
+                                    'Repeat Y',
+                                    'Repeat X and Y',
                                     'Upward slope',
                                     'Downward slope',
                                     'Downward reverse slope',
@@ -2833,37 +3468,60 @@ class tileOverlord(QtWidgets.QWidget):
         # Connections
         self.addObject.released.connect(self.addObj)
         self.removeObject.released.connect(self.removeObj)
-        self.addRow.released.connect(self.tiles.addRow)
-        self.removeRow.released.connect(self.tiles.removeRow)
-        self.addColumn.released.connect(self.tiles.addColumn)
-        self.removeColumn.released.connect(self.tiles.removeColumn)
+        self.placeNull.toggled.connect(self.doPlaceNull)
+        self.addRow.released.connect(self.addRowHandler)
+        self.removeRow.released.connect(self.removeRowHandler)
+        self.addColumn.released.connect(self.addColumnHandler)
+        self.removeColumn.released.connect(self.removeColumnHandler)
 
-        self.tilingMethod.activated.connect(self.setTiling)
+        self.tilingMethod.currentIndexChanged.connect(self.setTiling)
 
 
         # Layout
+        self.repeatX = RepeatXModifiers()
+        repeatXLyt = QtWidgets.QVBoxLayout()
+        repeatXLyt.addWidget(self.repeatX)
+
+        self.repeatY = RepeatYModifiers()
+        repeatYLyt = QtWidgets.QHBoxLayout()
+        repeatYLyt.addWidget(self.repeatY)
+
+        self.slopeLine = SlopeLineModifier()
+        slopeLineLyt = QtWidgets.QVBoxLayout()
+        slopeLineLyt.addWidget(self.slopeLine)
+
+        tilesLyt = QtWidgets.QGridLayout()
+        tilesLyt.setSpacing(0)
+        tilesLyt.setContentsMargins(0,0,0,0)
+
+        tilesLyt.addWidget(self.tiles, 0, 0, 3, 4)
+        tilesLyt.addLayout(repeatXLyt, 0, 4, 3, 1)
+        tilesLyt.addLayout(repeatYLyt, 3, 0, 1, 4)
+        tilesLyt.addLayout(slopeLineLyt, 0, 5, 3, 1)
+
         layout = QtWidgets.QGridLayout()
 
-        layout.addWidget(self.addObject, 0, 0, 1, 4)
-        layout.addWidget(self.removeObject, 0, 4, 1, 4)
+        layout.addWidget(self.tilesetType, 0, 0, 1, 1)
+        layout.addWidget(self.tilingMethod, 0, 1, 1, 4)
 
-        layout.addWidget(self.tilesetType, 1, 0, 1, 1)
-        layout.addWidget(self.tilingMethod, 1, 1, 1, 7)
-
+        layout.addWidget(self.addObject, 0, 5, 1, 1)
+        layout.addWidget(self.removeObject, 0, 6, 1, 1)
 
         layout.setRowMinimumHeight(1, 40)
 
         layout.setRowStretch(1, 1)
         layout.setRowStretch(2, 5)
         layout.setRowStretch(5, 5)
-        layout.addWidget(self.tiles, 2, 1, 4, 6)
 
-        layout.addWidget(self.addColumn, 3, 7, 1, 1)
-        layout.addWidget(self.removeColumn, 4, 7, 1, 1)
-        layout.addWidget(self.addRow, 6, 3, 1, 1)
-        layout.addWidget(self.removeRow, 6, 4, 1, 1)
+        layout.addLayout(tilesLyt, 2, 1, 4, 6)
+        layout.addWidget(self.info, 6, 0, 1, 7)
 
-        layout.addWidget(self.info, 7, 0, 1, 8)
+        layout.addWidget(self.placeNull, 1, 0, 1, 1)
+
+        layout.addWidget(self.addColumn, 2, 0, 1, 1)
+        layout.addWidget(self.removeColumn, 3, 0, 1, 1)
+        layout.addWidget(self.addRow, 1, 1, 1, 1)
+        layout.addWidget(self.removeRow, 1, 2, 1, 1)
 
         self.setLayout(layout)
 
@@ -2873,16 +3531,20 @@ class tileOverlord(QtWidgets.QWidget):
     def addObj(self):
         global Tileset
 
-        Tileset.addObject()
+        Tileset.addObject(new=True)
 
         pix = QtGui.QPixmap(24, 24)
         pix.fill(Qt.transparent)
+
         painter = QtGui.QPainter(pix)
         painter.drawPixmap(0, 0, Tileset.tiles[0].image)
         painter.end()
+        del painter
 
         count = len(Tileset.objects)
-        window.objmodel.appendRow(QtGui.QStandardItem(QtGui.QIcon(pix), 'Object {0}'.format(count-1)))
+        item = QtGui.QStandardItem(QtGui.QIcon(pix), 'Object {0}'.format(count-1))
+        item.setEditable(False)
+        window.objmodel.appendRow(item)
         index = window.objectList.currentIndex()
         window.objectList.setCurrentIndex(index)
         self.setObject(index)
@@ -2894,349 +3556,232 @@ class tileOverlord(QtWidgets.QWidget):
     def removeObj(self):
         global Tileset
 
-        if not Tileset.objects:
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
             return
 
-        index = window.objectList.currentIndex()
+        Tileset.removeObject(index)
+        window.objmodel.removeRow(index)
+        self.tiles.clear()
 
-        if index.row() == -1:
-            return
-
-        Tileset.removeObject(index.row())
-        window.objmodel.removeRow(index.row())
-
-        index = window.objectList.currentIndex()
-        if index.row() == -1:
-            self.tiles.clear()
-        else:
-            window.objectList.setCurrentIndex(index)
-            self.setObject(index)
+        SetupObjectModel(window.objmodel, Tileset.objects, Tileset.tiles)
 
         window.objectList.update()
         self.update()
 
 
+    def doPlaceNull(self, checked):
+        global Tileset
+        Tileset.placeNullChecked = checked
+
+
     def setObject(self, index):
         global Tileset
+
+        self.tiles.object = index.row()
+        if self.tiles.object < 0 or self.tiles.object >= len(Tileset.objects):
+            return
+
         object = Tileset.objects[index.row()]
 
-        width = len(object.tiles[0])-1
-        height = len(object.tiles)-1
-        Xuniform = True
-        Yuniform = True
-        Xstretch = False
-        Ystretch = False
-
-        for tile in object.tiles[0]:
-            if tile[0] != object.tiles[0][0][0]:
-                Xuniform = False
-
-        for tile in object.tiles:
-            if tile[0][0] != object.tiles[0][0][0]:
-                Yuniform = False
-
-        if object.tiles[0][0][0] == object.tiles[0][width][0] and Xuniform == False:
-            Xstretch = True
-
-        if object.tiles[0][0][0] == object.tiles[height][0][0] and Xuniform == False:
-            Ystretch = True
-
-
-
-        if object.upperslope[0] != 0:
-            if object.upperslope[0] == 0x90:
-                self.tilingMethod.setCurrentIndex(8)
-            elif object.upperslope[0] == 0x91:
-                self.tilingMethod.setCurrentIndex(9)
-            elif object.upperslope[0] == 0x92:
-                self.tilingMethod.setCurrentIndex(10)
-            elif object.upperslope[0] == 0x93:
-                self.tilingMethod.setCurrentIndex(11)
-
-        else:
-            if Xuniform and Yuniform:
-                self.tilingMethod.setCurrentIndex(0)
-            elif Xstretch and Ystretch:
-                self.tilingMethod.setCurrentIndex(1)
-            elif Xstretch:
-                self.tilingMethod.setCurrentIndex(2)
-            elif Ystretch:
-                self.tilingMethod.setCurrentIndex(3)
-            elif Xuniform and Yuniform == False and object.tiles[0][0][0] == 0:
-                self.tilingMethod.setCurrentIndex(4)
-            elif Xuniform and Yuniform == False and object.tiles[height][0][0] == 0:
-                self.tilingMethod.setCurrentIndex(5)
-            elif Xuniform == False and Yuniform and object.tiles[0][0][0] == 0:
-                self.tilingMethod.setCurrentIndex(6)
-            elif Xuniform == False and Yuniform and object.tiles[0][width][0] == 0:
-                self.tilingMethod.setCurrentIndex(7)
-
-
+        self.tilingMethod.setCurrentIndex(object.determineTilingMethod())
         self.tiles.setObject(object)
 
-#        print 'Object {0}, Width: {1} / Height: {2}, Slope {3}/{4}'.format(index.row(), object.width, object.height, object.upperslope, object.lowerslope)
-#        for row in object.tiles:
-#            print 'Row: {0}'.format(row)
-#        print ''
 
     @QtCoreSlot(int)
     def setTiling(self, listindex):
+        if listindex == 0:  # No Repetition
+            self.repeatX.setVisible(False)
+            self.repeatY.setVisible(False)
+            self.slopeLine.setVisible(False)
+
+        elif listindex == 1:  # Repeat X
+            self.repeatX.setVisible(True)
+            self.repeatY.setVisible(False)
+            self.slopeLine.setVisible(False)
+
+        elif listindex == 2:  # Repeat Y
+            self.repeatX.setVisible(False)
+            self.repeatY.setVisible(True)
+            self.slopeLine.setVisible(False)
+
+        elif listindex == 3:  # Repeat X and Y
+            self.repeatX.setVisible(True)
+            self.repeatY.setVisible(True)
+            self.slopeLine.setVisible(False)
+
+        elif listindex == 4:  # Upward Slope
+            self.repeatX.setVisible(False)
+            self.repeatY.setVisible(False)
+            self.slopeLine.setVisible(True)
+
+        elif listindex == 5:  # Downward Slope
+            self.repeatX.setVisible(False)
+            self.repeatY.setVisible(False)
+            self.slopeLine.setVisible(True)
+
+        elif listindex == 6:  # Upward Reverse Slope
+            self.repeatX.setVisible(False)
+            self.repeatY.setVisible(False)
+            self.slopeLine.setVisible(True)
+
+        elif listindex == 7:  # Downward Reverse Slope
+            self.repeatX.setVisible(False)
+            self.repeatY.setVisible(False)
+            self.slopeLine.setVisible(True)
+
         global Tileset
 
+        index = window.objectList.currentIndex().row()
+        if index < 0 or index >= len(Tileset.objects):
+            return
+
+        object = Tileset.objects[index]
+        if object.tilingMethodIdx == listindex:
+            return
+
+        object.tilingMethodIdx = listindex
+        self.tiles.slope = 0
+
+        if listindex == 0:  # No Repetition
+            object.clearRepetitionXY()
+
+            object.upperslope = [0, 0]
+            object.lowerslope = [0, 0]
+
+        elif listindex == 1:  # Repeat X
+            object.clearRepetitionY()
+
+            if not object.repeatX:
+                object.createRepetitionX()
+                self.repeatX.update()
+
+            object.upperslope = [0, 0]
+            object.lowerslope = [0, 0]
+
+        elif listindex == 2:  # Repeat Y
+            object.clearRepetitionX()
+
+            if not object.repeatY:
+                object.createRepetitionY(0, object.height)
+                self.repeatY.update()
+
+            object.upperslope = [0, 0]
+            object.lowerslope = [0, 0]
+
+        elif listindex == 3:  # Repeat X and Y
+            if not object.repeatX:
+                object.createRepetitionX()
+                self.repeatX.update()
+
+            if not object.repeatY:
+                object.createRepetitionY(0, object.height)
+                self.repeatY.update()
+
+            object.upperslope = [0, 0]
+            object.lowerslope = [0, 0]
+
+        elif listindex == 4:  # Upward Slope
+            object.clearRepetitionXY()
+
+            if object.upperslope[0] != 0x90:
+                object.upperslope = [0x90, 1]
+
+                if object.height == 1:
+                    object.lowerslope = [0, 0]
+
+                else:
+                    object.lowerslope = [0x84, object.height - 1]
+
+            self.tiles.slope = object.upperslope[1]
+            self.slopeLine.update()
+
+        elif listindex == 5:  # Downward Slope
+            object.clearRepetitionXY()
+
+            if object.upperslope[0] != 0x91:
+                object.upperslope = [0x91, 1]
+
+                if object.height == 1:
+                    object.lowerslope = [0, 0]
+
+                else:
+                    object.lowerslope = [0x84, object.height - 1]
+
+            self.tiles.slope = object.upperslope[1]
+            self.slopeLine.update()
+
+        elif listindex == 6:  # Upward Reverse Slope
+            object.clearRepetitionXY()
+
+            if object.upperslope[0] != 0x92:
+                object.upperslope = [0x92, 1]
+
+                if object.height == 1:
+                    object.lowerslope = [0, 0]
+
+                else:
+                    object.lowerslope = [0x84, object.height - 1]
+
+            self.tiles.slope = -object.upperslope[1]
+            self.slopeLine.update()
+
+        elif listindex == 7:  # Downward Reverse Slope
+            object.clearRepetitionXY()
+
+            if object.upperslope[0] != 0x93:
+                object.upperslope = [0x93, 1]
+
+                if object.height == 1:
+                    object.lowerslope = [0, 0]
+
+                else:
+                    object.lowerslope = [0x84, object.height - 1]
+
+            self.tiles.slope = -object.upperslope[1]
+            self.slopeLine.update()
+
+        self.tiles.update()
+
+
+    def addRowHandler(self):
         index = window.objectList.currentIndex()
-        object = Tileset.objects[index.row()]
+        self.tiles.object = index.row()
+
+        if self.tiles.object < 0 or self.tiles.object >= len(Tileset.objects):
+            return
+
+        self.tiles.addRow()
 
 
-        if listindex == 0: # Repeat
-            ctile = 0
-            crow = 0
+    def removeRowHandler(self):
+        index = window.objectList.currentIndex()
+        self.tiles.object = index.row()
 
-            for row in object.tiles:
-                for tile in row:
-                    object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
+        if self.tiles.object < 0 or self.tiles.object >= len(Tileset.objects):
+            return
 
-        if listindex == 1: # Stretch Center
-
-            if object.width < 3 and object.height < 3:
-                reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 3 tiles\nwide and 3 tiles tall to apply stretch center.")
-                self.setObject(index)
-                return
-
-            ctile = 0
-            crow = 0
-
-            for row in object.tiles:
-                for tile in row:
-                    if crow == 0 and ctile == 0:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    elif crow == 0 and ctile == object.width-1:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    elif crow == object.height-1 and ctile == object.width-1:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    elif crow == object.height-1 and ctile == 0:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    elif crow == 0 or crow == object.height-1:
-                        object.tiles[crow][ctile] = (1, tile[1], tile[2])
-                    elif ctile == 0 or ctile == object.width-1:
-                        object.tiles[crow][ctile] = (2, tile[1], tile[2])
-                    else:
-                        object.tiles[crow][ctile] = (3, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0, 0]
-            object.lowerslope = [0, 0]
-
-        if listindex == 2: # Stretch X
-
-            if object.width < 3:
-                reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 3 tiles\nwide to apply stretch X.")
-                self.setObject(index)
-                return
-
-            ctile = 0
-            crow = 0
-
-            for row in object.tiles:
-                for tile in row:
-                    if ctile == 0:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    elif ctile == object.width-1:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    else:
-                        object.tiles[crow][ctile] = (1, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0, 0]
-            object.lowerslope = [0, 0]
-
-        if listindex == 3: # Stretch Y
-
-            if object.height < 3:
-                reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 3 tiles\ntall to apply stretch Y.")
-                self.setObject(index)
-                return
-
-            ctile = 0
-            crow = 0
-
-            for row in object.tiles:
-                for tile in row:
-                    if crow == 0:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    elif crow == object.height-1:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    else:
-                        object.tiles[crow][ctile] = (2, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0, 0]
-            object.lowerslope = [0, 0]
-
-        if listindex == 4: # Repeat Bottom
-
-            if object.height < 2:
-                reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 2 tiles\ntall to apply repeat bottom.")
-                self.setObject(index)
-                return
-
-            ctile = 0
-            crow = 0
-
-            for row in object.tiles:
-                for tile in row:
-                    if crow == object.height-1:
-                        object.tiles[crow][ctile] = (2, tile[1], tile[2])
-                    else:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0, 0]
-            object.lowerslope = [0, 0]
-
-        if listindex == 5: # Repeat Top
-
-            if object.height < 2:
-                reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 2 tiles\ntall to apply repeat top.")
-                self.setObject(index)
-                return
-
-            ctile = 0
-            crow = 0
-
-            for row in object.tiles:
-                for tile in row:
-                    if crow == 0:
-                        object.tiles[crow][ctile] = (2, tile[1], tile[2])
-                    else:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0, 0]
-            object.lowerslope = [0, 0]
-
-        if listindex == 6: # Repeat Left
-
-            if object.width < 2:
-                reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 2 tiles\nwide to apply repeat left.")
-                self.setObject(index)
-                return
-
-            ctile = 0
-            crow = 0
-
-            for row in object.tiles:
-                for tile in row:
-                    if ctile == 0:
-                        object.tiles[crow][ctile] = (1, tile[1], tile[2])
-                    else:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0, 0]
-            object.lowerslope = [0, 0]
-
-        if listindex == 7: # Repeat Right
-
-            if object.width < 2:
-                reply = QtWidgets.QMessageBox.information(self, "Warning", "An object must be at least 2 tiles\nwide to apply repeat right.")
-                self.setObject(index)
-                return
-
-            ctile = 0
-            crow = 0
-
-            for row in object.tiles:
-                for tile in row:
-                    if ctile == object.width-1:
-                        object.tiles[crow][ctile] = (1, tile[1], tile[2])
-                    else:
-                        object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0, 0]
-            object.lowerslope = [0, 0]
+        self.tiles.removeRow()
 
 
-        if listindex == 8: # Upward Slope
-            ctile = 0
-            crow = 0
-            for row in object.tiles:
-                for tile in row:
-                    object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
+    def addColumnHandler(self):
+        index = window.objectList.currentIndex()
+        self.tiles.object = index.row()
 
-            object.upperslope = [0x90, 1]
-            object.lowerslope = [0x84, object.height - 1]
-            self.tiles.slope = 1
+        if self.tiles.object < 0 or self.tiles.object >= len(Tileset.objects):
+            return
 
-            self.tiles.update()
+        self.tiles.addColumn()
 
-        if listindex == 9: # Downward Slope
-            ctile = 0
-            crow = 0
-            for row in object.tiles:
-                for tile in row:
-                    object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
 
-            object.upperslope = [0x91, 1]
-            object.lowerslope = [0x84, object.height - 1]
-            self.tiles.slope = 1
+    def removeColumnHandler(self):
+        index = window.objectList.currentIndex()
+        self.tiles.object = index.row()
 
-            self.tiles.update()
+        if self.tiles.object < 0 or self.tiles.object >= len(Tileset.objects):
+            return
 
-        if listindex == 10: # Upward Reverse Slope
-            ctile = 0
-            crow = 0
-            for row in object.tiles:
-                for tile in row:
-                    object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0x92, object.height - 1]
-            object.lowerslope = [0x84, 1]
-            self.tiles.slope = 0-(object.height-1)
-
-            self.tiles.update()
-
-        if listindex == 11: # Downward Reverse Slope
-            ctile = 0
-            crow = 0
-            for row in object.tiles:
-                for tile in row:
-                    object.tiles[crow][ctile] = (0, tile[1], tile[2])
-                    ctile += 1
-                crow += 1
-                ctile = 0
-
-            object.upperslope = [0x93, object.height - 1]
-            object.lowerslope = [0x84, 1]
-            self.tiles.slope = 0-(object.height-1)
-
-            self.tiles.update()
+        self.tiles.removeColumn()
 
 
 class tileWidget(QtWidgets.QWidget):
@@ -3247,14 +3792,14 @@ class tileWidget(QtWidgets.QWidget):
         self.tiles = []
 
         self.size = [1, 1]
-        self.setMinimumSize(24, 24)
+        self.setMinimumSize(36, 36)  # (24, 24) + padding
 
         self.slope = 0
 
         self.highlightedRect = QtCore.QRect()
 
         self.setAcceptDrops(True)
-        self.object = 0
+        self.object = -1
 
 
     def clear(self):
@@ -3270,30 +3815,41 @@ class tileWidget(QtWidgets.QWidget):
     def addColumn(self):
         global Tileset
 
-        if self.object >= len(Tileset.objects):
-            return
-
         if self.size[0] >= 24:
             return
 
+        if self.object < 0 or self.object >= len(Tileset.objects):
+            return
+
         self.size[0] += 1
-        self.setMinimumSize(self.size[0]*24, self.size[1]*24)
-
-        pix = QtGui.QPixmap(24,24)
-        pix.fill(QtGui.QColor(0,0,0,0))
-
-        for y in range(self.size[1]):
-            self.tiles.insert(((y+1) * self.size[0]) -1, [self.size[0]-1, y, pix])
-
+        self.setMinimumSize(self.size[0]*24 + 12, self.size[1]*24 + 12)
 
         curObj = Tileset.objects[self.object]
         curObj.width += 1
 
-        for row in curObj.tiles:
-            row.append((0, 0, 0))
+        pix = QtGui.QPixmap(24,24)
+        pix.fill(QtGui.QColor(0,0,0,0))
+
+        for row in self.tiles:
+            row.append(pix)
+
+        if curObj.repeatY:
+            for y, row in enumerate(curObj.tiles):
+                if y >= curObj.repeatY[0] and y < curObj.repeatY[1]:
+                    row.append((2, 0, 0))
+
+                else:
+                    row.append((0, 0, 0))
+
+        else:
+            for row in curObj.tiles:
+                row.append((0, 0, 0))
 
         self.update()
         self.updateList()
+
+        window.tileWidget.repeatX.update()
+
 
     def removeColumn(self):
         global Tileset
@@ -3301,50 +3857,80 @@ class tileWidget(QtWidgets.QWidget):
         if self.size[0] == 1:
             return
 
-        for y in range(self.size[1]):
-            self.tiles.pop(((y+1) * self.size[0])-(y+1))
+        if self.object < 0 or self.object >= len(Tileset.objects):
+            return
 
-        self.size[0] = self.size[0] - 1
-        self.setMinimumSize(self.size[0]*24, self.size[1]*24)
-
+        self.size[0] -= 1
+        self.setMinimumSize(self.size[0]*24 + 12, self.size[1]*24 + 12)
 
         curObj = Tileset.objects[self.object]
         curObj.width -= 1
 
+        for row in self.tiles:
+            if len(row) > 1:
+                row.pop()
+
         for row in curObj.tiles:
-            row.pop()
+            if len(row) > 1:
+                row.pop()
+
+        if curObj.repeatX:
+            for y, row in enumerate(curObj.tiles):
+                start, end = curObj.repeatX[y]
+                end = min(end, len(row))
+                start = min(start, end - 1)
+
+                if [start, end] != curObj.repeatX[y]:
+                    curObj.repeatX[y] = [start, end]
+                    for x in range(len(row)):
+                        if x >= start and x < end:
+                            row[x] = (row[x][0] | 1, row[x][1], row[x][2])
+
+                        else:
+                            row[x] = (row[x][0] & ~1, row[x][1], row[x][2])
 
         self.update()
         self.updateList()
+
+        window.tileWidget.repeatX.update()
 
 
     def addRow(self):
         global Tileset
 
-        if self.object >= len(Tileset.objects):
-            return
-
         if self.size[1] >= 24:
             return
 
+        if self.object < 0 or self.object >= len(Tileset.objects):
+            return
+
         self.size[1] += 1
-        self.setMinimumSize(self.size[0]*24, self.size[1]*24)
-
-        pix = QtGui.QPixmap(24,24)
-        pix.fill(QtGui.QColor(0,0,0,0))
-
-        for x in range(self.size[0]):
-            self.tiles.append([x, self.size[1]-1, pix])
+        self.setMinimumSize(self.size[0]*24 + 12, self.size[1]*24 + 12)
 
         curObj = Tileset.objects[self.object]
         curObj.height += 1
 
-        curObj.tiles.append([])
-        for i in range(0, curObj.width):
-            curObj.tiles[len(curObj.tiles)-1].append((0, 0, 0))
+        pix = QtGui.QPixmap(24,24)
+        pix.fill(QtGui.QColor(0,0,0,0))
+
+        self.tiles.append([pix for _ in range(curObj.width)])
+
+        if curObj.repeatX:
+            curObj.tiles.append([(1, 0, 0) for _ in range(curObj.width)])
+            curObj.repeatX.append([0, curObj.width])
+
+        else:
+            curObj.tiles.append([(0, 0, 0) for _ in range(curObj.width)])
+
+        if curObj.upperslope[0] != 0:
+            curObj.lowerslope = [0x84, curObj.lowerslope[1] + 1]
 
         self.update()
         self.updateList()
+
+        window.tileWidget.repeatX.update()
+        window.tileWidget.repeatY.update()
+        window.tileWidget.slopeLine.update()
 
 
     def removeRow(self):
@@ -3353,19 +3939,50 @@ class tileWidget(QtWidgets.QWidget):
         if self.size[1] == 1:
             return
 
-        for x in range(self.size[0]):
-            self.tiles.pop()
+        if self.object < 0 or self.object >= len(Tileset.objects):
+            return
+
+        self.tiles.pop()
 
         self.size[1] -= 1
-        self.setMinimumSize(self.size[0]*24, self.size[1]*24)
+        self.setMinimumSize(self.size[0]*24 + 12, self.size[1]*24 + 12)
 
         curObj = Tileset.objects[self.object]
+        curObj.tiles = list(curObj.tiles)
         curObj.height -= 1
 
         curObj.tiles.pop()
 
+        if curObj.repeatX:
+            curObj.repeatX.pop()
+
+        if curObj.repeatY:
+            start, end = curObj.repeatY
+            end = min(end, curObj.height)
+            start = min(start, end - 1)
+
+            if [start, end] != curObj.repeatY:
+                curObj.createRepetitionY(start, end)
+
+        if curObj.upperslope[0] != 0:
+            if curObj.upperslope[1] > curObj.height or curObj.height == 1:
+                curObj.upperslope[1] = curObj.height
+                curObj.lowerslope = [0, 0]
+
+                if curObj.upperslope[0] & 2:
+                    self.slope = -curObj.upperslope[1]
+                else:
+                    self.slope = curObj.upperslope[1]
+
+            else:
+                curObj.lowerslope = [0x84, curObj.lowerslope[1] - 1]
+
         self.update()
         self.updateList()
+
+        window.tileWidget.repeatX.update()
+        window.tileWidget.repeatY.update()
+        window.tileWidget.slopeLine.update()
 
 
     def setObject(self, object):
@@ -3374,23 +3991,25 @@ class tileWidget(QtWidgets.QWidget):
         global Tileset
 
         self.size = [object.width, object.height]
+        self.setMinimumSize(self.size[0]*24 + 12, self.size[1]*24 + 12)
 
         if not object.upperslope[1] == 0:
             if object.upperslope[0] & 2:
-                self.slope = 0 - object.lowerslope[1]
+                self.slope = -object.upperslope[1]
             else:
                 self.slope = object.upperslope[1]
 
         x = 0
         y = 0
         for row in object.tiles:
+            self.tiles.append([])
             for tile in row:
-                if (Tileset.slot == 0) or ((tile[2] & 3) != 0):
-                    self.tiles.append([x, y, Tileset.tiles[tile[1]].image])
+                if Tileset.slot == (tile[2] & 3):
+                    self.tiles[-1].append(Tileset.tiles[tile[1]].image)
                 else:
                     pix = QtGui.QPixmap(24,24)
                     pix.fill(QtGui.QColor(0,0,0,0))
-                    self.tiles.append([x, y, pix])
+                    self.tiles[-1].append(pix)
                 x += 1
             y += 1
             x = 0
@@ -3400,12 +4019,35 @@ class tileWidget(QtWidgets.QWidget):
         self.update()
         self.updateList()
 
+        window.tileWidget.repeatX.update()
+        window.tileWidget.repeatY.update()
+        window.tileWidget.slopeLine.update()
+
 
     def contextMenuEvent(self, event):
+        index = window.objectList.currentIndex()
+        self.object = index.row()
+
+        if self.object < 0 or self.object >= len(Tileset.objects):
+            return
+
+        centerPoint = self.contentsRect().center()
+
+        upperLeftX = centerPoint.x() - self.size[0]*12
+        upperLeftY = centerPoint.y() - self.size[1]*12
+
+        x = int((event.x() - upperLeftX) / 24)
+        y = int((event.y() - upperLeftY) / 24)
+
+        object = Tileset.objects[self.object]
+
+        if y < 0 or y >= object.height or x < 0 or x >= len(object.tiles[y]):
+            return
+
+        self.contX = x
+        self.contY = y
 
         TileMenu = QtWidgets.QMenu(self)
-        self.contX = event.x()
-        self.contY = event.y()
 
         TileMenu.addAction('Set tile...', self.setTile)
         TileMenu.addAction('Set item...', self.setItem)
@@ -3419,18 +4061,15 @@ class tileWidget(QtWidgets.QWidget):
         if event.button() == 2:
             return
 
-        if window.tileDisplay.selectedIndexes() == []:
+        index = window.objectList.currentIndex()
+        self.object = index.row()
+
+        if self.object < 0 or self.object >= len(Tileset.objects):
             return
 
-        currentSelected = window.tileDisplay.selectedIndexes()
-
-        ix = 0
-        iy = 0
-        for modelItem in currentSelected:
-            # Update yourself!
+        if Tileset.placeNullChecked:
             centerPoint = self.contentsRect().center()
 
-            tile = modelItem.row()
             upperLeftX = centerPoint.x() - self.size[0]*12
             upperLeftY = centerPoint.y() - self.size[1]*12
 
@@ -3438,24 +4077,67 @@ class tileWidget(QtWidgets.QWidget):
             lowerRightY = centerPoint.y() + self.size[1]*12
 
 
-            x = int((event.x() - upperLeftX)/24 + ix)
-            y = int((event.y() - upperLeftY)/24 + iy)
+            x = int((event.x() - upperLeftX)/24)
+            y = int((event.y() - upperLeftY)/24)
 
             if event.x() < upperLeftX or event.y() < upperLeftY or event.x() > lowerRightX or event.y() > lowerRightY:
                 return
 
-            try:
-                self.tiles[(y * self.size[0]) + x][2] = Tileset.tiles[tile].image
-                Tileset.objects[self.object].tiles[y][x] = (Tileset.objects[self.object].tiles[y][x][0], tile, Tileset.slot)
-            except IndexError:
-                pass
+            if Tileset.slot == 0:
+                try:
+                    self.tiles[y][x] = Tileset.tiles[0].image
+                    Tileset.objects[self.object].tiles[y][x] = (Tileset.objects[self.object].tiles[y][x][0], 0, 0)
+                except IndexError:
+                    pass
 
-            ix += 1
-            if self.size[0]-1 < ix:
-                ix = 0
-                iy += 1
-            if iy > self.size[1]-1:
-                break
+            else:
+                pix = QtGui.QPixmap(24,24)
+                pix.fill(QtGui.QColor(0,0,0,0))
+
+                try:
+                    self.tiles[y][x] = pix
+                    Tileset.objects[self.object].tiles[y][x] = (Tileset.objects[self.object].tiles[y][x][0], 0, 0)
+                except IndexError:
+                    pass
+
+        else:
+            if window.tileDisplay.selectedIndexes() == []:
+                return
+
+            currentSelected = window.tileDisplay.selectedIndexes()
+
+            ix = 0
+            iy = 0
+            for modelItem in currentSelected:
+                # Update yourself!
+                centerPoint = self.contentsRect().center()
+
+                tile = modelItem.row()
+                upperLeftX = centerPoint.x() - self.size[0]*12
+                upperLeftY = centerPoint.y() - self.size[1]*12
+
+                lowerRightX = centerPoint.x() + self.size[0]*12
+                lowerRightY = centerPoint.y() + self.size[1]*12
+
+
+                x = int((event.x() - upperLeftX)/24 + ix)
+                y = int((event.y() - upperLeftY)/24 + iy)
+
+                if event.x() < upperLeftX or event.y() < upperLeftY or event.x() > lowerRightX or event.y() > lowerRightY:
+                    return
+
+                try:
+                    self.tiles[y][x] = Tileset.tiles[tile].image
+                    Tileset.objects[self.object].tiles[y][x] = (Tileset.objects[self.object].tiles[y][x][0], tile, Tileset.slot)
+                except IndexError:
+                    pass
+
+                ix += 1
+                if self.size[0]-1 < ix:
+                    ix = 0
+                    iy += 1
+                if iy > self.size[1]-1:
+                    break
 
 
         self.update()
@@ -3476,8 +4158,9 @@ class tileWidget(QtWidgets.QWidget):
         Xoffset = 0
         Yoffset = 0
 
-        for tile in self.tiles:
-            painter.drawPixmap(tile[0]*24, tile[1]*24, tile[2])
+        for y, row in enumerate(self.tiles):
+            for x, tile in enumerate(row):
+                painter.drawPixmap(x*24, y*24, tile)
 
         painter.end()
 
@@ -3493,22 +4176,20 @@ class tileWidget(QtWidgets.QWidget):
         dlg = self.setTileDialog()
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
             # Do stuff
-            centerPoint = self.contentsRect().center()
-
-            upperLeftX = centerPoint.x() - self.size[0]*12
-            upperLeftY = centerPoint.y() - self.size[1]*12
-
             tile = dlg.tile.value()
             tileset = dlg.tileset.currentIndex()
 
-            x = int((self.contX - upperLeftX) / 24)
-            y = int((self.contY - upperLeftY) / 24)
+            x = self.contX
+            y = self.contY
 
             if tileset != Tileset.slot:
                 tex = QtGui.QPixmap(self.size[0] * 24, self.size[1] * 24)
                 tex.fill(Qt.transparent)
 
-                self.tiles[(y * self.size[0]) + x][2] = tex
+                self.tiles[y][x] = tex
+
+            else:
+                self.tiles[y][x] = Tileset.tiles[tile].image
 
             Tileset.objects[self.object].tiles[y][x] = (Tileset.objects[self.object].tiles[y][x][0], tile, tileset)
 
@@ -3545,13 +4226,8 @@ class tileWidget(QtWidgets.QWidget):
     def setItem(self):
         global Tileset
 
-        centerPoint = self.contentsRect().center()
-
-        upperLeftX = centerPoint.x() - self.size[0]*12
-        upperLeftY = centerPoint.y() - self.size[1]*12
-
-        x = int((self.contX - upperLeftX) / 24)
-        y = int((self.contY - upperLeftY) / 24)
+        x = self.contX
+        y = self.contY
 
         obj = Tileset.objects[self.object].tiles[y][x]
 
@@ -3617,37 +4293,72 @@ class tileWidget(QtWidgets.QWidget):
         upperLeftY = centerPoint.y() - self.size[1]*12
         lowerRightY = centerPoint.y() + self.size[1]*12
 
+        index = window.objectList.currentIndex()
+        self.object = index.row()
 
-        painter.fillRect(upperLeftX, upperLeftY, self.size[0] * 24, self.size[1]*24, QtGui.QColor(175, 175, 175))
+        if self.object < 0 or self.object >= len(Tileset.objects):
+            painter.end()
+            return
 
-        for x, y, pix in self.tiles:
-            painter.drawPixmap(upperLeftX + (x * 24), upperLeftY + (y * 24), pix)
+        object = Tileset.objects[self.object]
+        for y, row in enumerate(object.tiles):
+            painter.fillRect(upperLeftX, upperLeftY + y * 24, len(row) * 24, 24, QtGui.QColor(175, 175, 175))
 
-        if not self.slope == 0:
+        for y, row in enumerate(self.tiles):
+            for x, pix in enumerate(row):
+                painter.drawPixmap(upperLeftX + (x * 24), upperLeftY + (y * 24), pix)
+
+        if object.upperslope[0] & 0x80:
             pen = QtGui.QPen()
-#            pen.setStyle(Qt.QDashLine)
-            pen.setWidth(1)
-            pen.setColor(Qt.blue)
+            pen.setStyle(Qt.DashLine)
+            pen.setWidth(2)
+            pen.setColor(QtGui.QColor(0, 255, 255))
             painter.setPen(QtGui.QPen(pen))
-            painter.drawLine(upperLeftX, upperLeftY + (abs(self.slope) * 24), lowerRightX, upperLeftY + (abs(self.slope) * 24))
 
-            if self.slope > 0:
-                main = 'Main'
-                sub = 'Sub'
-            elif self.slope < 0:
-                main = 'Sub'
-                sub = 'Main'
+            slope = self.slope
+            if slope < 0:
+                slope += self.size[1]
+
+            painter.drawLine(upperLeftX, upperLeftY + (slope * 24), lowerRightX, upperLeftY + (slope * 24))
 
             font = painter.font()
             font.setPixelSize(8)
             font.setFamily('Monaco')
             painter.setFont(font)
 
-            painter.drawText(upperLeftX+1, upperLeftY+10, main)
-            painter.drawText(upperLeftX+1, upperLeftY + (abs(self.slope) * 24) + 9, sub)
+            if self.slope > 0:
+                painter.drawText(upperLeftX+1, upperLeftY+10, 'Main')
+                painter.drawText(upperLeftX+1, upperLeftY + (slope * 24) + 9, 'Sub')
+
+            else:
+                painter.drawText(upperLeftX+1, upperLeftY + self.size[1]*24 - 4, 'Main')
+                painter.drawText(upperLeftX+1, upperLeftY + (slope * 24) - 3, 'Sub')
+
+        if 0 <= self.object < len(Tileset.objects):
+            object = Tileset.objects[self.object]
+            if object.repeatX:
+                pen = QtGui.QPen()
+                pen.setStyle(Qt.DashLine)
+                pen.setWidth(2)
+                pen.setColor(QtGui.QColor(0, 255, 255))
+                painter.setPen(QtGui.QPen(pen))
+
+                for y in range(object.height):
+                    startX, endX = object.repeatX[y]
+                    painter.drawLine(upperLeftX + startX * 24, upperLeftY + y * 24, upperLeftX + startX * 24, upperLeftY + y * 24 + 24)
+                    painter.drawLine(upperLeftX +   endX * 24, upperLeftY + y * 24, upperLeftX +   endX * 24, upperLeftY + y * 24 + 24)
+
+            if object.repeatY:
+                pen = QtGui.QPen()
+                pen.setStyle(Qt.DashLine)
+                pen.setWidth(2)
+                pen.setColor(QtGui.QColor(255, 0, 255))
+                painter.setPen(QtGui.QPen(pen))
+
+                painter.drawLine(upperLeftX, upperLeftY + object.repeatY[0] * 24, lowerRightX, upperLeftY + object.repeatY[0] * 24)
+                painter.drawLine(upperLeftX, upperLeftY + object.repeatY[1] * 24, lowerRightX, upperLeftY + object.repeatY[1] * 24)
 
         painter.end()
-
 
 
 #############################################################################################
@@ -3816,25 +4527,21 @@ def RGB4A3Decode(tex, useAlpha=True):
 def RGB4A3Encode(tex):
     shorts = []
     colorCache = {}
-    for ytile in range(0, 256, 4):
-        for xtile in range(0, 1024, 4):
-            for ypixel in range(ytile, ytile + 4):
-                for xpixel in range(xtile, xtile + 4):
 
-                    if xpixel >= 1024 or ypixel >= 256:
-                        continue
-
-                    pixel = tex.pixel(xpixel, ypixel)
-
-                    a = pixel >> 24
-                    r = (pixel >> 16) & 0xFF
-                    g = (pixel >> 8) & 0xFF
-                    b = pixel & 0xFF
+    for yTile in range(0, 256, 4):
+        for xTile in range(0, 1024, 4):
+            for y in range(yTile, yTile + 4):
+                for x in range(xTile, xTile + 4):
+                    pixel = tex.pixel(x, y)
 
                     if pixel in colorCache:
                         rgba = colorCache[pixel]
 
                     else:
+                        a = pixel >> 24
+                        r = (pixel >> 16) & 0xFF
+                        g = (pixel >> 8) & 0xFF
+                        b = pixel & 0xFF
 
                         # See encodingTests.py for verification that these
                         # channel conversion formulas are 100% correct
@@ -3862,19 +4569,9 @@ def RGB4A3Encode(tex):
                             # 1rrrrrgggggbbbbb
                             rgba = blue | (green << 5) | (red << 10) | (0x8000)
 
-                            colorCache[pixel] = rgba
+                        colorCache[pixel] = rgba
 
                     shorts.append(rgba)
-
-                    if xtile % 32 == 0 or xtile % 32 == 28:
-                        shorts.append(rgba)
-                        shorts.append(rgba)
-                        shorts.append(rgba)
-                        break
-                if xtile % 32 == 0 or xtile % 32 == 28:
-                    shorts.extend(shorts[-4:])
-                    shorts.extend(shorts[-8:])
-                    break
 
     return struct.pack('>262144H', *shorts)
 
@@ -3884,8 +4581,14 @@ def RGB4A3Encode(tex):
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    MaxRecentFiles = 9
+
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
+
+        self.recentFileActs = []
+        self.recentFiles = []
+        self.readRececntFiles()
 
         self.alpha = True
 
@@ -3905,14 +4608,217 @@ class MainWindow(QtWidgets.QMainWindow):
         self.name = ''
 
         self.setupMenus()
+        self.updateRecentFileActions()
         self.setupWidgets()
 
         self.setuptile()
 
         self.newTileset()
 
+        self.readIni()
+
         self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed))
         self.setWindowTitle("New Tileset")
+
+
+        if self.tilesetPath:
+            self.openTilesetFromPath(self.tilesetPath)
+
+        if self.animTilesPath:
+            if self.animTilesPath.endswith('.txt'):
+                self.animTilesEditor.importFromTxt(path=self.animTilesPath)
+            elif self.animTilesPath.endswith('.bin'):
+                self.animTilesEditor.importFromBin(path=self.animTilesPath)
+
+        if self.randTilesPath:
+            if self.randTilesPath.endswith('.xml'):
+                self.randTilesEditor.importFromXml(path=self.randTilesPath)
+            elif self.randTilesPath.endswith('.bin'):
+                self.randTilesEditor.importFromBin(path=self.randTilesPath)
+
+
+    def readRececntFiles(self):
+        f = open("Other/recent.txt", "r")
+        self.recentFiles = f.read().splitlines()
+
+
+    def saveRececntFiles(self):
+        f = open("Other/recent.txt", "w")
+        f.write("\n".join(self.recentFiles))
+
+
+    def readIni(self):
+        self.tilesetPath=""
+        self.tilesetDialoguePath=""
+        self.animTilesPath=""
+        self.animTilesTXTDialoguePath=""
+        self.animTilesBINDialoguePath=""
+        self.randTilesPath=""
+        self.randTilesXMLDialoguePath=""
+        self.randTilesBINDialoguePath=""
+
+        f = open("Other/settings.ini", "r")
+        for line in f.read().splitlines():
+            attr = line.split("=")
+            if attr[0] == "tilesetPath":
+                self.tilesetPath = attr[1]
+            elif attr[0] == "tilesetDialoguePath":
+                self.tilesetDialoguePath = attr[1]
+            elif attr[0] == "animTilesPath":
+                self.animTilesPath = attr[1]
+            elif attr[0] == "animTilesTXTDialoguePath":
+                self.animTilesTXTDialoguePath = attr[1]
+            elif attr[0] == "animTilesBINDialoguePath":
+                self.animTilesBINDialoguePath = attr[1]
+            elif attr[0] == "randTilesPath":
+                self.randTilesPath = attr[1]
+            elif attr[0] == "randTilesXMLDialoguePath":
+                self.randTilesXMLDialoguePath = attr[1]
+            elif attr[0] == "randTilesBINDialoguePath":
+                self.randTilesBINDialoguePath = attr[1]
+
+    def saveIni(self):
+        self.tilesetPath = self.tilesetPathBox.text()
+        self.tilesetDialoguePath = self.tilesetDialoguePathBox.text()
+        self.animTilesPath = self.animTilesPathBox.text()
+        self.animTilesTXTDialoguePath = self.animTilesTXTDialoguePathBox.text()
+        self.animTilesBINDialoguePath = self.animTilesBINDialoguePathBox.text()
+        self.randTilesPath = self.randTilesPathBox.text()
+        self.randTilesXMLDialoguePath = self.randTilesXMLDialoguePathBox.text()
+        self.randTilesBINDialoguePath = self.randTilesBINDialoguePathBox.text()
+
+        settingsText = ""
+        settingsText += "tilesetPath=" + self.tilesetPath
+        settingsText += "\ntilesetDialoguePath=" + self.tilesetDialoguePath
+        settingsText += "\nanimTilesPath=" + self.animTilesPath
+        settingsText += "\nanimTilesTXTDialoguePath=" + self.animTilesTXTDialoguePath
+        settingsText += "\nanimTilesBINDialoguePath=" + self.animTilesBINDialoguePath
+        settingsText += "\nrandTilesPath=" + self.randTilesPath
+        settingsText += "\nrandTilesXMLDialoguePath=" + self.randTilesXMLDialoguePath
+        settingsText += "\nrandTilesBINDialoguePath=" + self.randTilesBINDialoguePath
+
+        f = open("Other/settings.ini", 'w')
+        f.write(settingsText)
+        self.settingsWindow.hide()
+
+
+    def settings(self):
+        self.settingsWindow = QtWidgets.QWidget()
+        self.description = QtWidgets.QLabel('Settings')
+        font = self.description.font()
+        font.setPointSize(18)
+        font.setBold(True)
+        self.description.setFont(font)
+
+        self.tilesetDescription = QtWidgets.QLabel('Tilesets')
+        self.tilesetPathBox = QtWidgets.QLineEdit(self.tilesetPath)
+        self.tilesetPathBox.setPlaceholderText('Open this tileset on start ...')
+        self.tilesetPathOpen = QtWidgets.QPushButton('Select')
+        self.tilesetDialoguePathBox = QtWidgets.QLineEdit(self.tilesetDialoguePath)
+        self.tilesetDialoguePathBox.setPlaceholderText('Start in this directory when opening/saving a tileset ...')
+        self.tilesetDialoguePathOpen = QtWidgets.QPushButton('Select')
+        self.animTilesDescription = QtWidgets.QLabel('AnimTiles')
+        self.animTilesPathBox = QtWidgets.QLineEdit(self.animTilesPath)
+        self.animTilesPathBox.setPlaceholderText('Open this AnimTiles.bin or .txt on start ...')
+        self.animTilesPathOpen = QtWidgets.QPushButton('Select')
+        self.animTilesTXTDialoguePathBox = QtWidgets.QLineEdit(self.animTilesTXTDialoguePath)
+        self.animTilesTXTDialoguePathBox.setPlaceholderText('Start in this directory when opening/saving a AnimTiles.txt file ...')
+        self.animTilesTXTDialoguePathOpen = QtWidgets.QPushButton('Select')
+        self.animTilesBINDialoguePathBox = QtWidgets.QLineEdit(self.animTilesBINDialoguePath)
+        self.animTilesBINDialoguePathBox.setPlaceholderText('Start in this directory when opening/saving a AnimTiles.bin file ...')
+        self.animTilesBINDialoguePathOpen = QtWidgets.QPushButton('Select')
+        self.randTilesDescription = QtWidgets.QLabel('RandTiles')
+        self.randTilesPathBox = QtWidgets.QLineEdit(self.randTilesPath)
+        self.randTilesPathBox.setPlaceholderText('Open this RandTiles.bin or tilesetinfo.xml on start ...')
+        self.randTilesPathOpen = QtWidgets.QPushButton('Select')
+        self.randTilesXMLDialoguePathBox = QtWidgets.QLineEdit(self.randTilesXMLDialoguePath)
+        self.randTilesXMLDialoguePathBox.setPlaceholderText('Start in this directory when opening/saving a tilesetinfo.xml file ...')
+        self.randTilesXMLDialoguePathOpen = QtWidgets.QPushButton('Select')
+        self.randTilesBINDialoguePathBox = QtWidgets.QLineEdit(self.randTilesBINDialoguePath)
+        self.randTilesBINDialoguePathBox.setPlaceholderText('Start in this directory when opening/saving a RandTiles.bin file ...')
+        self.randTilesBINDialoguePathOpen = QtWidgets.QPushButton('Select')
+        self.saveSettings = QtWidgets.QPushButton('Save')
+
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(self.description, 0, 0, 1, 4, Qt.AlignLeft | Qt.AlignTop)
+        layout.addWidget(self.tilesetDescription, 1, 0, 1, 4, Qt.AlignCenter)
+        layout.addWidget(self.tilesetPathBox, 2, 0, 1, 3)
+        layout.addWidget(self.tilesetPathOpen, 2, 3, 1, 1)
+        layout.addWidget(self.tilesetDialoguePathBox, 3, 0, 1, 3)
+        layout.addWidget(self.tilesetDialoguePathOpen, 3, 3, 1, 1)
+        layout.addWidget(self.animTilesDescription, 4, 0, 1, 4, Qt.AlignCenter)
+        layout.addWidget(self.animTilesPathBox, 5, 0, 1, 3)
+        layout.addWidget(self.animTilesPathOpen, 5, 3, 1, 1)
+        layout.addWidget(self.animTilesTXTDialoguePathBox, 6, 0, 1, 3)
+        layout.addWidget(self.animTilesTXTDialoguePathOpen, 6, 3, 1, 1)
+        layout.addWidget(self.animTilesBINDialoguePathBox, 7, 0, 1, 3)
+        layout.addWidget(self.animTilesBINDialoguePathOpen, 7, 3, 1, 1)
+        layout.addWidget(self.randTilesDescription, 8, 0, 1, 4, Qt.AlignCenter)
+        layout.addWidget(self.randTilesPathBox, 9, 0, 1, 3)
+        layout.addWidget(self.randTilesPathOpen, 9, 3, 1, 1)
+        layout.addWidget(self.randTilesXMLDialoguePathBox, 10, 0, 1, 3)
+        layout.addWidget(self.randTilesXMLDialoguePathOpen, 10, 3, 1, 1)
+        layout.addWidget(self.randTilesBINDialoguePathBox, 11, 0, 1, 3)
+        layout.addWidget(self.randTilesBINDialoguePathOpen, 11, 3, 1, 1)
+        layout.addWidget(self.saveSettings, 12, 3, 1, 1)
+        self.settingsWindow.setLayout(layout)
+
+        self.tilesetPathOpen.released.connect(self.getTilesetPath)
+        self.tilesetDialoguePathOpen.released.connect(self.getTilesetDialoguePath)
+        self.animTilesPathOpen.released.connect(self.getAnimTilesPath)
+        self.animTilesTXTDialoguePathOpen.released.connect(self.getTXTAnimTilesPathOpen)
+        self.animTilesBINDialoguePathOpen.released.connect(self.getBINAnimTilesPathOpen)
+        self.randTilesPathOpen.released.connect(self.getRandTilesPath)
+        self.randTilesXMLDialoguePathOpen.released.connect(self.getXMLRandTilesPathOpen)
+        self.randTilesBINDialoguePathOpen.released.connect(self.getBINRandTilesPathOpen)
+        self.saveSettings.released.connect(self.saveIni)
+
+        self.settingsWindow.setMinimumWidth(900)
+        self.settingsWindow.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.settingsWindow.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+        self.settingsWindow.setWindowTitle('Settings')
+        self.settingsWindow.show()
+
+
+    def getTilesetPath(self):
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Choose a file ...", '', "Tileset (*.arc)")[0]
+        if not path: return
+        self.tilesetPathBox.setText(path)
+
+    def getTilesetDialoguePath(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose a folder ...')
+        if not path: return
+        self.tilesetDialoguePathBox.setText(path)
+
+    def getAnimTilesPath(self):
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Choose a file ...", '', "AnimTiles.txt (*.txt);;AnimTiles.bin (*.bin)")[0]
+        if not path: return
+        self.animTilesPathBox.setText(path)
+
+    def getTXTAnimTilesPathOpen(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose a folder ...')
+        if not path: return
+        self.animTilesTXTDialoguePathBox.setText(path)
+
+    def getBINAnimTilesPathOpen(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose a folder ...')
+        if not path: return
+        self.animTilesBINDialoguePathBox.setText(path)
+
+    def getRandTilesPath(self):
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Choose a file ...", '', "tilesetinfo.xml (*.xml);;RandTiles.bin (*.bin)")[0]
+        if not path: return
+        self.randTilesPathBox.setText(path)
+
+    def getXMLRandTilesPathOpen(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose a folder ...')
+        if not path: return
+        self.randTilesXMLDialoguePathBox.setText(path)
+
+    def getBINRandTilesPathOpen(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose a folder ...')
+        if not path: return
+        self.randTilesBINDialoguePathBox.setText(path)
 
 
     def exportAllFramesheetsAsTpl(self):
@@ -3950,7 +4856,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         i = 0
         while i < self.framesheetmodel.rowCount():
-            print(0)
             item = self.framesheetmodel.itemFromIndex(self.framesheetmodel.index(i, 0))
             icon = item.icon()
             name = item.text()
@@ -3985,7 +4890,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 while y < 24:
                     x = 0
                     while x < 24:
-                        color = downScaledImage.pixel(x, y)
+                        color = downScaledImage.pixel(x, y + i*24)
                         image.setPixel(x + 4, i * 32 + y + 4, color)
                         x += 1
                     y += 1
@@ -4033,28 +4938,216 @@ class MainWindow(QtWidgets.QMainWindow):
 
             image.save(fn)
 
+    '''
+    def convertGifToFramesheets(self):
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open a gif file", '', "Animated Image (*.gif)")[0]
+        im = Image.open(path)
+        try:
+            shutil.rmtree("temp")
+            os.mkdir("temp")
+        except:
+            try:
+                os.mkdir("temp")
+            except:
+                print("Couldn't initialize temp directory!")
+                return
+
+        for i in range(0, im.n_frames):
+            im.seek(i)
+            print(i)
+            im.save("temp/{}.png".format(i))
+
+        self.popup = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        self.btn1 = QtWidgets.QPushButton("Import from AnimTiles tab")
+        #self.btn1.released.connect(self.fromAnimTiles)
+
+
+        self.info = QtWidgets.QLabel("Importing from the AnimTiles tab imports all entries with a matching texname.\n\nIt removes those entries from the AnimTiles tab!\n\nSo: don't forget to export after you finished editing!!!")
+        self.info.setWordWrap(True)
+
+        layout.addWidget(self.btn1, 0, 0, 1, 1)
+        layout.addWidget(self.info, 1, 0, 1, 2)
+
+        self.popup.setLayout(layout)
+        self.popup.setWindowTitle("Import framesheet info")
+        self.popup.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.popup.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+        self.popup.show()
+    '''
+
+    def optimizeXml(self):
+        #trying to replace all entries with their abbreviated equivalents
+        text = self.randTilesEditor.text.toPlainText()
+        text = text.replace('        <random list="0x10" values="0x10, 0x20, 0x30, 0x40" direction="vertical" />\n        <random list="0x20" values="0x10, 0x20, 0x30, 0x40" direction="vertical" />\n        <random list="0x30" values="0x10, 0x20, 0x30, 0x40" direction="vertical" />\n        <random list="0x40" values="0x10, 0x20, 0x30, 0x40" direction="vertical" />\n        <random list="0x11" values="0x11, 0x21, 0x31, 0x41" direction="vertical" />\n        <random list="0x21" values="0x11, 0x21, 0x31, 0x41" direction="vertical" />\n        <random list="0x31" values="0x11, 0x21, 0x31, 0x41" direction="vertical" />\n        <random list="0x41" values="0x11, 0x21, 0x31, 0x41" direction="vertical" />\n        <random range="0x2, 0x7" direction="horizontal" />\n        <random range="0x22, 0x27" direction="horizontal" />\n        <random range="0x12, 0x17" direction="both" />', '        <random name="regular-terrain" />')
+        text = text.replace('        <random list="0x18" values="0x18, 0x28, 0x38, 0x48" direction="vertical" />\n        <random list="0x28" values="0x18, 0x28, 0x38, 0x48" direction="vertical" />\n        <random list="0x38" values="0x18, 0x28, 0x38, 0x48" direction="vertical" />\n        <random list="0x48" values="0x18, 0x28, 0x38, 0x48" direction="vertical" />\n        <random list="0x19" values="0x19, 0x29, 0x39, 0x49" direction="vertical" />\n        <random list="0x29" values="0x19, 0x29, 0x39, 0x49" direction="vertical" />\n        <random list="0x39" values="0x19, 0x29, 0x39, 0x49" direction="vertical" />\n        <random list="0x49" values="0x19, 0x29, 0x39, 0x49" direction="vertical" />\n        <random range="0xA, 0xF" direction="horizontal" />\n        <random range="0x2A, 0x2F" direction="horizontal" />\n        <random range="0x1A, 0x1F" direction="both" />', '        <random name="sub-terrain" />')
+
+        # unfinished vertical randomization optimizer
+        #root = etree.fromstring(xml)
+        #for group in root:
+        #    i = 0
+        #    childrenNum = len(group.getchildren())
+        #    for random in group:
+        #        if 'list' in random.attrib and 'values' in random.attrib:
+        #            j = 0
+        #            list = list(map(lambda s: int(s, 0), random.attrib['list'].split(",")))
+        #            if len(list) == 1:
+        #                list = list[0]
+        #                values = list(map(lambda s: int(s, 0), random.attrib['values'].split(",")))
+        #                if i + len(values) < childrenNum:
+        #                    while j < len(values):
+        #                        
+        #                        j += 1
+        #                else:
+        #                    break
+        #        i += 1
+
+        self.randTilesEditor.text.setPlainText(text)
+
 
     def createReadme(self):
         self.readmeWindow = QtWidgets.QWidget()
-        self.text = QCodeEditor.QCodeEditor(SyntaxHighlighter=QCodeEditor.MarkdownHighlighter)
+        self.textEditor = QCodeEditor.QCodeEditor()
+        self.textEditor.setMinimumWidth(500)
+        self.textPreview = QtWidgets.QTextBrowser()
+        self.textPreview.setMinimumWidth(500)
+        self.textPreview.setOpenExternalLinks(True)
+        self.textPreview.verticalScrollBar().setEnabled(False)
         self.tutorials = QtWidgets.QLabel('Include tutorials:')
         self.includeTilesetTutorial = QtWidgets.QCheckBox('Tilesets')
         self.includeAnimationTutorial = QtWidgets.QCheckBox('Animations')
-        self.includeRandomizationTutorial = QtWidgets.QCheckBox('Randomizations')
+        self.includeRandomizationTutorial = QtWidgets.QCheckBox('Randomiszations')
         self.saveBtn = QtWidgets.QPushButton('Save')
         self.saveBtn.setMaximumWidth(200)
         layout = QtWidgets.QGridLayout()
-        layout.addWidget(self.text, 0, 0, 1, 4)
+        layout.addWidget(self.textEditor, 0, 0, 1, 2)
+        layout.addWidget(self.textPreview, 0, 2, 1, 2)
         layout.addWidget(self.tutorials, 1, 0, 1, 1)
         layout.addWidget(self.includeTilesetTutorial, 1, 1, 1, 1)
         layout.addWidget(self.includeAnimationTutorial, 1, 2, 1, 1)
         layout.addWidget(self.includeRandomizationTutorial, 1, 3, 1, 1)
         layout.addWidget(self.saveBtn, 2, 0, 1, 4)
-        #layout.setColumnMinimumWidth(0, 400)
         layout.setRowMinimumHeight(0, 400)
+
+        self.textEditor.textChanged.connect(self.updateReadmePreview)
+        self.textEditor.cursorPositionChanged.connect(self.updateReadmePreviewScrollBar)
+        self.textEditor.verticalScrollBar().valueChanged.connect(self.updateReadmePreviewScrollBar)
+        #self.textPreview.verticalScrollBar().valueChanged.connect(self.updateReadmeEditorScrollBar)
+        self.saveBtn.released.connect(self.saveReadme)
+
         self.readmeWindow.setLayout(layout)
-        self.readmeWindow.setWindowTitle('Create readme.md ...')
+        self.readmeWindow.setWindowTitle('Create readme.md')
+        self.readmeWindow.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
         self.readmeWindow.show()
+
+
+    def updateReadmePreview(self):
+        self.textPreview.setMarkdown(self.textEditor.toPlainText())
+        self.updateReadmePreviewScrollBar()
+
+
+    def updateReadmePreviewScrollBar(self, editorValue = None):
+        s1 = self.textPreview.verticalScrollBar()
+        s2 = self.textEditor.verticalScrollBar()
+        if s2.maximum() - s2.minimum() < 1:
+            return
+        if not editorValue:
+            editorValue = self.textEditor.verticalScrollBar().value()
+        previewValue = (editorValue / (s2.maximum() - s2.minimum())) * (s1.maximum() - s1.minimum())
+        s1.setValue(previewValue)
+
+
+    def saveReadme(self):
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save readme.md file', 'readme.md', 'Readme (*.md)')[0]
+        if not fn: return
+
+        readmeText = self.textEditor.toPlainText()
+        if self.includeTilesetTutorial.isChecked():
+            f = open("Other/tilesets.md", 'r')
+            readmeText += "\n<br/><br/><br/>\n" + f.read()
+        if self.includeAnimationTutorial.isChecked():
+            f = open("Other/animations.md", 'r')
+            readmeText += "\n<br/><br/><br/>\n" + f.read()
+        if self.includeRandomizationTutorial.isChecked():
+            f = open("Other/randomizations.md", 'r')
+            readmeText += "\n<br/><br/><br/>\n" + f.read()
+
+        f = open(fn, 'w')
+        f.write(readmeText)
+
+
+    def credits(self):
+        class QCreditsDialog(QtWidgets.QDialog):
+            def __init__(self):
+                QtWidgets.QDialog.__init__(self)
+                self.setWindowTitle('Credits')
+
+                try:
+                    with open('credits.md', 'r') as f:
+                        credits = f.read()
+                except:
+                    credits = "The file 'credits.md' is missing!"
+
+                logo = QtGui.QPixmap('Icons/about.png')
+                logoLabel = QtWidgets.QLabel()
+                logoLabel.setPixmap(logo)
+                logoLabel.setContentsMargins(16, 4, 32, 4)
+
+                creditsView = QtWidgets.QTextEdit()
+                creditsView.setMinimumWidth(1000)
+                creditsView.setMinimumHeight(500)
+                creditsView.setMarkdown(credits)
+                creditsView.setReadOnly(True)
+
+                buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+                buttonBox.accepted.connect(self.accept)
+
+                L = QtWidgets.QGridLayout()
+                L.addWidget(logoLabel, 0, 0, 3, 1)
+                L.addWidget(creditsView, 0, 1, 2, 1)
+                L.addWidget(buttonBox, 2, 0, 1, 2)
+                L.setRowStretch(1, 1)
+                L.setColumnStretch(1, 1)
+                self.setLayout(L)
+
+        QCreditsDialog().exec_()
+
+
+    def help(self):
+        class QHelpDialog(QtWidgets.QDialog):
+            def __init__(self):
+                QtWidgets.QDialog.__init__(self)
+                self.setWindowTitle('Help')
+
+                try:
+                    with open('Other/help.html', 'r') as f:
+                        help = f.read()
+                except:
+                    help = "The file 'help.html' is missing!"
+
+                logo = QtGui.QPixmap('Icons/about.png')
+                logoLabel = QtWidgets.QLabel()
+                logoLabel.setPixmap(logo)
+                logoLabel.setContentsMargins(16, 4, 32, 4)
+
+                helpView = QtWidgets.QTextBrowser()
+                helpView.setMinimumWidth(750)
+                helpView.setMinimumHeight(500)
+                helpView.setHtml(help)
+                helpView.setOpenExternalLinks(True)
+
+                buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+                buttonBox.accepted.connect(self.accept)
+
+                L = QtWidgets.QGridLayout()
+                L.addWidget(logoLabel, 0, 0, 3, 1)
+                L.addWidget(helpView, 0, 1, 2, 1)
+                L.addWidget(buttonBox, 2, 0, 1, 2)
+                L.setRowStretch(1, 1)
+                L.setColumnStretch(1, 1)
+                self.setLayout(L)
+
+        QHelpDialog().exec_()
 
 
     def setuptile(self):
@@ -4094,8 +5187,11 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(256):
             Tileset.addTile(EmptyPix, EmptyPix)
 
-        self.clearObjects()
+        self.tileWidget.tilesetType.setText('Pa0')
+
         self.setuptile()
+        self.clearObjects()
+
         self.setWindowTitle('New Tileset')
 
         index = self.framesheetList.currentIndex()
@@ -4107,8 +5203,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def openTileset(self):
         '''Asks the user for a filename, then calls openTilesetFromPath().'''
 
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open NSMBW Tileset", '',
-                    "Tileset Files (*.arc)")[0]
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open NSMBW Tileset", window.tilesetPath, "Tileset Files (*.arc)")[0]
 
         if path:
             self.openTilesetFromPath(path)
@@ -4116,6 +5211,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def openTilesetFromPath(self, path):
         '''Opens a Nintendo tileset arc and parses the heck out of it.'''
+        if path in self.recentFiles:
+            self.recentFiles.insert(0, self.recentFiles.pop(self.recentFiles.index(path)))
+        else:
+            self.recentFiles.insert(0, path)
+            while len(self.recentFiles) > MainWindow.MaxRecentFiles:
+                del self.recentFiles[9]
+        self.saveRececntFiles()
+        self.updateRecentFileActions()
+
         self.setWindowTitle(os.path.basename(path))
         Tileset.clear()
 
@@ -4230,7 +5334,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     byte = struct.unpack_from('>B', objstrings, offset)[0]
 
                 else:
-                    tilelist[len(tilelist)-1].append(struct.unpack_from('>3B', objstrings, offset))
+                    tilelist[-1].append(struct.unpack_from('>3B', objstrings, offset))
 
                     offset += 3
                     byte = struct.unpack_from('>B', objstrings, offset)[0]
@@ -4257,13 +5361,15 @@ class MainWindow(QtWidgets.QMainWindow):
                         if slot != 0 or tile[1] != 0:
                             slots.append(slot)
 
-            Tileset.slot = max(slots, key=slots.count)
+            if not slots:
+                Tileset.slot = 0
+            else:
+                Tileset.slot = max(slots, key=slots.count)
             del slots
 
             if name[:4] in ('Pa0_', 'Pa1_', 'Pa2_', 'Pa3_'):
                 slot = int(name[2])
                 if slot != Tileset.slot:
-                    # TODO: make a proper warning window
                     QtWidgets.QMessageBox.information(self, "Warning", "Determined tileset slot ({}) does not match with the slot in the filename ({})!".format(Tileset.slot, slot))
 
             else:
@@ -4272,11 +5378,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         else:
             Tileset.slot = 1
+
         self.tileWidget.tilesetType.setText('Pa{0}'.format(Tileset.slot))
 
         self.setuptile()
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
         SetupFramesheetModel(self, Tileset.animdata)
+
+        self.objectList.clearCurrentIndex()
+        self.tileWidget.setObject(self.objectList.currentIndex())
+
+        self.objectList.update()
+        self.tileWidget.update()
 
         self.frameEditor.table.clearContents()
         self.frameEditor.table.setRowCount(0)
@@ -4328,7 +5441,16 @@ class MainWindow(QtWidgets.QMainWindow):
                 y += 1
                 x = 0
 
+        index = self.objectList.currentIndex()
+
         self.setuptile()
+        SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
+
+        self.objectList.setCurrentIndex(index)
+        self.tileWidget.setObject(index)
+
+        self.objectList.update()
+        self.tileWidget.update()
 
 
     def saveImage(self):
@@ -4580,27 +5702,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 if object.upperslope[0] & 0x2:
                     a = struct.pack('>B', object.upperslope[0])
 
-                    if object.height == 1:
-                        iterationsA = 0
-                        iterationsB = 1
-                    else:
-                        iterationsA = object.upperslope[1]
-                        iterationsB = object.lowerslope[1] + object.upperslope[1]
-
-                    for row in range(iterationsA, iterationsB):
+                    for row in range(object.lowerslope[1], object.height):
                         for tile in object.tiles[row]:
-                            a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
-                        a = a + b'\xfe'
+                            a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                        a += b'\xfe'
 
-                    if object.height > 1:
-                        a = a + struct.pack('>B', object.lowerslope[0])
+                    if object.height > 1 and object.lowerslope[1]:
+                        a += struct.pack('>B', object.lowerslope[0])
 
-                        for row in range(0, object.upperslope[1]):
+                        for row in range(0, object.lowerslope[1]):
                             for tile in object.tiles[row]:
-                                a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
-                            a = a + b'\xfe'
+                                a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                            a += b'\xfe'
 
-                    a = a + b'\xff'
+                    a += b'\xff'
 
                     objectStrings.append(a)
 
@@ -4611,18 +5726,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     for row in range(0, object.upperslope[1]):
                         for tile in object.tiles[row]:
-                            a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
-                        a = a + b'\xfe'
+                            a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                        a += b'\xfe'
 
-                    if object.height > 1:
-                        a = a + struct.pack('>B', object.lowerslope[0])
+                    if object.height > 1 and object.lowerslope[1]:
+                        a += struct.pack('>B', object.lowerslope[0])
 
                         for row in range(object.upperslope[1], object.height):
                             for tile in object.tiles[row]:
-                                a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
-                            a = a + b'\xfe'
+                                a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                            a += b'\xfe'
 
-                    a = a + b'\xff'
+                    a += b'\xff'
 
                     objectStrings.append(a)
 
@@ -4633,11 +5748,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 for tilerow in object.tiles:
                     for tile in tilerow:
-                        a = a + struct.pack('>BBB', tile[0], tile[1], tile[2])
+                        a += struct.pack('>BBB', tile[0], tile[1], tile[2])
 
-                    a = a + b'\xfe'
+                    a += b'\xfe'
 
-                a = a + b'\xff'
+                a += b'\xff'
 
                 objectStrings.append(a)
 
@@ -4647,17 +5762,15 @@ class MainWindow(QtWidgets.QMainWindow):
         Metabuffer = b''
         i = 0
         for a in objectStrings:
-            Metabuffer = Metabuffer + struct.pack('>H2B', len(Objbuffer), Tileset.objects[i].width, Tileset.objects[i].height)
-            Objbuffer = Objbuffer + a
+            Metabuffer += struct.pack('>H2B', len(Objbuffer), Tileset.objects[i].width, Tileset.objects[i].height)
+            Objbuffer += a
 
             i += 1
 
         return (Objbuffer, Metabuffer)
 
 
-
     def setupMenus(self):
-
         def get(name):
             """
             Returns an icon
@@ -4671,11 +5784,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.action = fileMenu.addAction(get('new'), "New", self.newTileset, QtGui.QKeySequence('Ctrl+N'))
         fileMenu.addAction(get('open'), "Open Tileset", self.openTileset, QtGui.QKeySequence('Ctrl+O'))
+        self.recentMenu = fileMenu.addMenu(get('open'), "Open recent Tileset")
         fileMenu.addAction(get('import'), "Import Image", self.openImage, QtGui.QKeySequence('Ctrl+I'))
         fileMenu.addAction(get('export'), "Export Image", self.saveImage, QtGui.QKeySequence('Ctrl+E'))
         fileMenu.addAction(get('save'), "Save Tileset", self.saveTileset, QtGui.QKeySequence('Ctrl+S'))
         fileMenu.addAction(get('saveas'), "Save Tileset as", self.saveTilesetAs, QtGui.QKeySequence('Ctrl+Shift+S'))
         fileMenu.addAction(get('exit'), "Quit", self.close, QtGui.QKeySequence('Ctrl+Q'))
+        fileMenu.addAction(get('settings'), "Settings", self.settings, QtGui.QKeySequence('Ctrl+P'))
 
         fileMenu.addSeparator()
         nsmblibAct = fileMenu.addAction('Using NSMBLib' if HaveNSMBLib else 'Not using NSMBLib')
@@ -4686,17 +5801,58 @@ class MainWindow(QtWidgets.QMainWindow):
         taskMenu.addAction("Set Tileset Slot", self.setSlot, QtGui.QKeySequence('Ctrl+T'))
         taskMenu.addAction("Clear Collision Data", self.clearCollisions, QtGui.QKeySequence('Ctrl+Shift+Backspace'))
         taskMenu.addAction("Clear Object Data", self.clearObjects, QtGui.QKeySequence('Ctrl+Alt+Backspace'))
+        taskMenu.addAction("Export all objects", self.saveAllObjects)
+        taskMenu.addAction("Switch objects", self.switchObjects)
 
         animMenu = self.menuBar().addMenu("&Animations")
         animMenu.addAction("Export all framesheets as .tpl", self.exportAllFramesheetsAsTpl, QtGui.QKeySequence('Ctrl+F'))
         animMenu.addAction("Export all framesheets as .png", self.exportAllFramesheetsAsPng, QtGui.QKeySequence('Ctrl+Shift+F'))
         animMenu.addAction("Create clamped framesheet", self.createClampedFramesheet, QtGui.QKeySequence('Ctrl+Shift+C'))
+        #animMenu.addAction("Convert gif to framesheet(s)", self.convertGifToFramesheets, QtGui.QKeySequence('Ctrl+G'))
+
+        randMenu = self.menuBar().addMenu("&Randomizations")
+        randMenu.addAction("Optimize opened xml", self.optimizeXml)
 
         otherMenu = self.menuBar().addMenu("&Other")
         otherMenu.addAction("Create readme.md", self.createReadme)
-        otherMenu.addAction("Help")
-        otherMenu.addSeparator()
-        otherMenu.addAction("Credits")
+        otherMenu.addAction("Help", self.help)
+        #otherMenu.addSeparator()
+        #otherMenu.addAction("Credits", self.credits)
+
+        for i in range(MainWindow.MaxRecentFiles):
+            self.recentFileActs.append(QtWidgets.QAction(self, visible=False, triggered=self.openRecentFile))
+
+        for i in range(MainWindow.MaxRecentFiles):
+            self.recentMenu.addAction(self.recentFileActs[i])
+
+
+    def updateRecentFileActions(self):
+        numRecentFiles = min(len(self.recentFiles), MainWindow.MaxRecentFiles)
+
+        if numRecentFiles == 0:
+            self.recentMenu.setEnabled(False)
+        else:
+            self.recentMenu.setEnabled(True)
+
+        for i in range(numRecentFiles):
+            text = "&%d %s" % (i + 1, self.strippedName(self.recentFiles[i]))
+            self.recentFileActs[i].setText(text)
+            self.recentFileActs[i].setData(self.recentFiles[i])
+            self.recentFileActs[i].setVisible(True)
+
+        for j in range(numRecentFiles, MainWindow.MaxRecentFiles):
+            self.recentFileActs[j].setVisible(False)
+
+
+    def openRecentFile(self):
+        action = self.sender()
+        if action:
+            self.openTilesetFromPath(action.data())
+
+
+    def strippedName(self, fullFileName):
+        return QtCore.QFileInfo(fullFileName).fileName()
+
 
     def setSlot(self):
         global Tileset
@@ -4717,9 +5873,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for object in Tileset.objects:
                 for row in object.tiles:
                     for tile in row:
-                        if tile != (0,0,0):
-                            Tileset.objects[cobj].tiles[crow][ctile] = (tile[0], tile[1], (tile[2] & 0xFC) | int(str(item[2])))
-                        if tile == (0,0,0) and ctile == 0:
+                        if (tile[2] & 3) != 0 or tile[1] != 0:
                             Tileset.objects[cobj].tiles[crow][ctile] = (tile[0], tile[1], (tile[2] & 0xFC) | int(str(item[2])))
                         ctile += 1
                     crow += 1
@@ -4731,12 +5885,515 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def toggleAlpha(self):
         # Replace Alpha Image with non-Alpha images in model
-        if self.alpha == True:
-            self.alpha = False
-        else:
-            self.alpha = True
+        self.alpha = not self.alpha
 
         self.setuptile()
+
+        self.tileWidget.setObject(self.objectList.currentIndex())
+        self.tileWidget.update()
+
+
+    def importObjFromFile(self):
+        usedTiles = Tileset.getUsedTiles()
+        if len(usedTiles) >= 256:  # It can't be more than 256, oh well
+            QtWidgets.QMessageBox.warning(self, "Open Object",
+                    "There isn't enough room in the Tileset.",
+                    QtWidgets.QMessageBox.Cancel)
+            return
+
+        file = QtWidgets.QFileDialog.getOpenFileName(self, "Open Object", '',
+                    "Object files (*.json)")[0]
+
+        if not file: return
+
+        with open(file) as inf:
+            jsonData = json.load(inf)
+
+        dir = os.path.dirname(file)
+
+        tilelist = [[]]
+        upperslope = [0, 0]
+        lowerslope = [0, 0]
+
+        metaData = open(dir + "/" + jsonData["meta"], "rb").read()
+        objstrings = open(dir + "/" + jsonData["objlyt"], "rb").read()
+        colls = open(dir + "/" + jsonData["colls"], "rb").read()
+
+        tilesUsed = []
+
+        pos = 0
+        while objstrings[pos] != 0xFF:
+            if objstrings[pos] & 0x80:
+                pos += 1
+                continue
+
+            tile = objstrings[pos:pos+3]
+            if tile != b'\0\0\0':
+                if tile[1] not in tilesUsed:
+                    tilesUsed.append(tile[1])
+
+            pos += 3
+
+        numTiles = len(tilesUsed)
+
+        if numTiles + len(usedTiles) > 256:
+            QtWidgets.QMessageBox.warning(self, "Open Object",
+                    "There isn't enough room for the object.",
+                    QtWidgets.QMessageBox.Cancel)
+            return
+
+        freeTiles = [i for i in range(256) if i not in usedTiles]
+
+        tilesUsed = {}
+
+        offset = 0
+        byte = struct.unpack_from('>B', objstrings, offset)[0]
+        i = 0
+        row = 0
+
+        while byte != 0xFF:
+
+            if byte == 0xFE:
+                tilelist.append([])
+
+                if (upperslope[0] != 0) and (lowerslope[0] == 0):
+                    upperslope[1] = upperslope[1] + 1
+
+                if lowerslope[0] != 0:
+                    lowerslope[1] = lowerslope[1] + 1
+
+                offset += 1
+                byte = struct.unpack_from('>B', objstrings, offset)[0]
+
+            elif (byte & 0x80):
+
+                if upperslope[0] == 0:
+                    upperslope[0] = byte
+                else:
+                    lowerslope[0] = byte
+
+                offset += 1
+                byte = struct.unpack_from('>B', objstrings, offset)[0]
+
+            else:
+                tileBytes = objstrings[offset:offset + 3]
+                if tileBytes == b'\0\0\0':
+                    tile = [0, 0, 0]
+
+                else:
+                    tile = []
+                    tile.append(byte)
+
+                    if tileBytes[1] not in tilesUsed:
+                        tilesUsed[tileBytes[1]] = i
+                        tile.append(freeTiles[i])
+                        i += 1
+                    else:
+                        tile.append(freeTiles[tilesUsed[tileBytes[1]]])
+
+                    byte2 = (struct.unpack_from('>B', objstrings, offset + 2)[0]) & 0xFC
+                    byte2 |= Tileset.slot
+                    tile.append(byte2)
+
+                tilelist[-1].append(tile)
+
+                offset += 3
+                byte = struct.unpack_from('>B', objstrings, offset)[0]
+
+        tilelist.pop()
+
+        if (upperslope[0] & 0x80) and (upperslope[0] & 0x2):
+            for i in range(lowerslope[1]):
+                pop = tilelist.pop()
+                tilelist.insert(0, pop)
+
+        Tileset.addObject(metaData[3], metaData[2], upperslope, lowerslope, tilelist)
+
+        count = len(Tileset.objects)
+
+        object = Tileset.objects[count-1]
+
+        tileImage = QtGui.QPixmap(dir + "/" + jsonData["img"])
+
+        tex = QtGui.QPixmap(object.width * 24, object.height * 24)
+        tex.fill(Qt.transparent)
+        painter = QtGui.QPainter(tex)
+
+        Xoffset = 0
+        Yoffset = 0
+
+        colls_off = 0
+
+        tilesReplaced = []
+
+        for row in object.tiles:
+            for tile in row:
+                if tile[2] & 3 or not Tileset.slot:
+                    if tile[1] not in tilesReplaced:
+                        tilesReplaced.append(tile[1])
+
+                        Tileset.tiles[tile[1]].image = tileImage.copy(Xoffset,Yoffset,24,24)
+                        Tileset.tiles[tile[1]].byte0 = colls[colls_off]
+                        colls_off += 1
+                        Tileset.tiles[tile[1]].byte1 = colls[colls_off]
+                        colls_off += 1
+                        Tileset.tiles[tile[1]].byte2 = colls[colls_off]
+                        colls_off += 1
+                        Tileset.tiles[tile[1]].byte3 = colls[colls_off]
+                        colls_off += 1
+                        Tileset.tiles[tile[1]].byte4 = colls[colls_off]
+                        colls_off += 1
+                        Tileset.tiles[tile[1]].byte5 = colls[colls_off]
+                        colls_off += 1
+                        Tileset.tiles[tile[1]].byte6 = colls[colls_off]
+                        colls_off += 1
+                        Tileset.tiles[tile[1]].byte7 = colls[colls_off]
+                        colls_off += 1
+
+                    painter.drawPixmap(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
+                Xoffset += 24
+            Xoffset = 0
+            Yoffset += 24
+
+        painter.end()
+
+        self.setuptile()
+
+        self.objmodel.appendRow(QtGui.QStandardItem(QtGui.QIcon(tex), 'Object {0}'.format(count-1)))
+
+        index = self.objectList.currentIndex()
+        self.objectList.setCurrentIndex(index)
+        self.objectList.setCurrentIndex(index)
+        self.tileWidget.setObject(index)
+
+        self.objectList.update()
+        self.tileWidget.update()
+
+
+    def switchObjects(self):
+        self.switchObjectsWindow = QtWidgets.QWidget()
+        self.object1label = QtWidgets.QLabel("1st Object:")
+        self.object1spin = QtWidgets.QSpinBox()
+        self.object1spin.setRange(0, len(Tileset.objects)-1)
+        self.object2label = QtWidgets.QLabel("2nd Object:")
+        self.object2spin = QtWidgets.QSpinBox()
+        self.object2spin.setRange(0, len(Tileset.objects)-1)
+        self.objectOkButton = QtWidgets.QPushButton("Switch")
+
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(self.object1label, 0, 0, 1, 1)
+        layout.addWidget(self.object1spin, 0, 1, 1, 1)
+        layout.addWidget(self.object2label, 0, 2, 1, 1)
+        layout.addWidget(self.object2spin, 0, 3, 1, 1)
+        layout.addWidget(self.objectOkButton, 1, 0, 1, 4)
+        self.switchObjectsWindow.setLayout(layout)
+
+        self.objectOkButton.released.connect(self.actuallySwitchObjects)
+
+        self.switchObjectsWindow.setWindowTitle('Switch Objects')
+        self.switchObjectsWindow.setFixedSize(self.switchObjectsWindow.sizeHint())
+        self.switchObjectsWindow.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.switchObjectsWindow.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+        self.switchObjectsWindow.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        self.switchObjectsWindow.show()
+
+
+    def actuallySwitchObjects(self):
+        self.switchObjectsWindow.hide()
+        temp = Tileset.objects[self.object1spin.value()]
+        Tileset.objects[self.object1spin.value()] = Tileset.objects[self.object2spin.value()]
+        Tileset.objects[self.object2spin.value()] = temp
+
+        index = self.objectList.currentIndex()
+        self.objectList.clearCurrentIndex()
+        SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
+        self.objectList.setCurrentIndex(self.objmodel.index(index.row(), index.column()))
+        self.objectList.update()
+
+
+    def saveAllObjects(self):
+        tile_name = (os.path.basename(self.name) if self.name else 'NewTileset')
+
+        save_path = QtWidgets.QFileDialog.getExistingDirectory(None, "Choose where to save the Object folder")
+        if not save_path: return
+
+        for object in Tileset.objects:
+            object.jsonData = {}
+
+        count = 0
+        for object in Tileset.objects:
+            tex = QtGui.QPixmap(object.width * 24, object.height * 24)
+            tex.fill(Qt.transparent)
+            painter = QtGui.QPainter(tex)
+
+            Xoffset = 0
+            Yoffset = 0
+
+            Tilebuffer = b''
+
+            for i in range(len(object.tiles)):
+                for tile in object.tiles[i]:
+                    if (Tileset.slot == 0) or ((tile[2] & 3) != 0):
+                        painter.drawPixmap(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
+                    Tilebuffer += (Tileset.tiles[tile[1]].byte0).to_bytes(1, 'big')
+                    Tilebuffer += (Tileset.tiles[tile[1]].byte1).to_bytes(1, 'big')
+                    Tilebuffer += (Tileset.tiles[tile[1]].byte2).to_bytes(1, 'big')
+                    Tilebuffer += (Tileset.tiles[tile[1]].byte3).to_bytes(1, 'big')
+                    Tilebuffer += (Tileset.tiles[tile[1]].byte4).to_bytes(1, 'big')
+                    Tilebuffer += (Tileset.tiles[tile[1]].byte5).to_bytes(1, 'big')
+                    Tilebuffer += (Tileset.tiles[tile[1]].byte6).to_bytes(1, 'big')
+                    Tilebuffer += (Tileset.tiles[tile[1]].byte7).to_bytes(1, 'big')
+                    Xoffset += 24
+                Xoffset = 0
+                Yoffset += 24
+
+            painter.end()
+
+            # Slopes
+            if object.upperslope[0] != 0:
+
+                # Reverse Slopes
+                if object.upperslope[0] & 0x2:
+                    a = struct.pack('>B', object.upperslope[0])
+
+                    if object.height == 1:
+                        iterationsA = 0
+                        iterationsB = 1
+                    else:
+                        iterationsA = object.upperslope[1]
+                        iterationsB = object.lowerslope[1] + object.upperslope[1]
+
+                    for row in range(iterationsA, iterationsB):
+                        for tile in object.tiles[row]:
+                            a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                        a += b'\xfe'
+
+                    if object.height > 1:
+                        a += struct.pack('>B', object.lowerslope[0])
+
+                        for row in range(0, object.upperslope[1]):
+                            for tile in object.tiles[row]:
+                                a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                            a += b'\xfe'
+
+                    a += b'\xff'
+
+
+                # Regular Slopes
+                else:
+                    a = struct.pack('>B', object.upperslope[0])
+
+                    #for row in range(0, object.upperslope[1]):
+                    #    for tile in object.tiles[row]:
+                    #        a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                    #    a += b'\xfe'
+
+                    if object.height > 1:
+                        a += struct.pack('>B', object.lowerslope[0])
+
+                        for row in range(object.upperslope[1], object.height):
+                            for tile in object.tiles[row]:
+                                a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                            a += b'\xfe'
+
+                    a += b'\xff'
+
+
+            # Not slopes!
+            else:
+                a = b''
+
+                for tilerow in object.tiles:
+                    for tile in tilerow:
+                        a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+
+                    a += b'\xfe'
+
+                a += b'\xff'
+
+            Objbuffer = a
+            Metabuffer = struct.pack('>HBB', (0 if count == 0 else len(Objbuffer)), object.width, object.height)
+
+            if not os.path.isdir(save_path + "/" + tile_name + "_objects"):
+                os.mkdir(save_path + "/" + tile_name + "_objects")
+
+            tex.save(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(count) + ".png", "PNG")
+
+            object.jsonData['img'] = tile_name + "_object_" + str(count) + ".png"
+
+            with open(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(count) + ".colls", "wb+") as colls:
+                colls.write(Tilebuffer)
+
+            object.jsonData['colls'] = tile_name + "_object_" + str(count) + ".colls"
+
+            with open(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(count) + ".objlyt", "wb+") as objlyt:
+                objlyt.write(Objbuffer)
+
+            object.jsonData['objlyt'] = tile_name + "_object_" + str(count) + ".objlyt"
+
+            with open(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(count) + ".meta", "wb+") as meta:
+                meta.write(Metabuffer)
+
+            object.jsonData['meta'] = tile_name + "_object_" + str(count) + ".meta"
+
+            count += 1
+
+        count = 0
+        for object in Tileset.objects:
+            with open(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(count) + ".json", 'w+') as outfile:
+                json.dump(object.jsonData, outfile)
+
+            count += 1
+
+
+    def saveFramesheet(self, index):
+        item = self.framesheetmodel.itemFromIndex(index)
+        icon = item.icon()
+        name = item.text()
+
+        path = QtWidgets.QFileDialog.getSaveFileName(self, 'Framesheet', '{}.png'.format(name), 'Framesheet (*.png)')[0]
+        if not path: return
+
+
+        pixmap = icon.pixmap(icon.availableSizes()[0])
+        pixmap.save(path, "PNG")
+
+
+
+    def saveObject(self, index):
+        if len(Tileset.objects) == 0: return
+
+        tile_name = (os.path.basename(self.name) if self.name else 'NewTileset')
+
+        save_path = QtWidgets.QFileDialog.getExistingDirectory(None, "Choose where to save the Object folder")
+        if not save_path: return
+
+        n = index.row()
+
+        object = Tileset.objects[n]
+
+        object.jsonData = {}
+
+        tex = QtGui.QPixmap(object.width * 24, object.height * 24)
+        tex.fill(Qt.transparent)
+        painter = QtGui.QPainter(tex)
+
+        Xoffset = 0
+        Yoffset = 0
+
+        Tilebuffer = b''
+
+        for i in range(len(object.tiles)):
+            for tile in object.tiles[i]:
+                if (Tileset.slot == 0) or ((tile[2] & 3) != 0):
+                    painter.drawPixmap(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
+                Tilebuffer += (Tileset.tiles[tile[1]].byte0).to_bytes(1, 'big')
+                Tilebuffer += (Tileset.tiles[tile[1]].byte1).to_bytes(1, 'big')
+                Tilebuffer += (Tileset.tiles[tile[1]].byte2).to_bytes(1, 'big')
+                Tilebuffer += (Tileset.tiles[tile[1]].byte3).to_bytes(1, 'big')
+                Tilebuffer += (Tileset.tiles[tile[1]].byte4).to_bytes(1, 'big')
+                Tilebuffer += (Tileset.tiles[tile[1]].byte5).to_bytes(1, 'big')
+                Tilebuffer += (Tileset.tiles[tile[1]].byte6).to_bytes(1, 'big')
+                Tilebuffer += (Tileset.tiles[tile[1]].byte7).to_bytes(1, 'big')
+                Xoffset += 24
+            Xoffset = 0
+            Yoffset += 24
+
+        painter.end()
+
+        # Slopes
+        if object.upperslope[0] != 0:
+
+            # Reverse Slopes
+            if object.upperslope[0] & 0x2:
+                a = struct.pack('>B', object.upperslope[0])
+
+                if object.height == 1:
+                    iterationsA = 0
+                    iterationsB = 1
+                else:
+                    iterationsA = object.upperslope[1]
+                    iterationsB = object.lowerslope[1] + object.upperslope[1]
+
+                for row in range(iterationsA, iterationsB):
+                    for tile in object.tiles[row]:
+                        a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                    a += b'\xfe'
+
+                if object.height > 1:
+                    a += struct.pack('>B', object.lowerslope[0])
+
+                    for row in range(0, object.upperslope[1]):
+                        for tile in object.tiles[row]:
+                            a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                        a += b'\xfe'
+
+                a += b'\xff'
+
+
+            # Regular Slopes
+            else:
+                a = struct.pack('>B', object.upperslope[0])
+
+                for row in range(0, object.upperslope[1]):
+                    for tile in object.tiles[row]:
+                        a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                    a += b'\xfe'
+
+                if object.height > 1:
+                    a += struct.pack('>B', object.lowerslope[0])
+
+                    for row in range(object.upperslope[1], object.height):
+                        for tile in object.tiles[row]:
+                            a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                        a += b'\xfe'
+
+                a += b'\xff'
+
+
+        # Not slopes!
+        else:
+            a = b''
+
+            for tilerow in object.tiles:
+                for tile in tilerow:
+                    a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+
+                a += b'\xfe'
+
+            a += b'\xff'
+
+        Objbuffer = a
+        Metabuffer = struct.pack('>HBB', (0 if n == 0 else len(Objbuffer)), object.width, object.height)
+
+        if not os.path.isdir(save_path + "/" + tile_name + "_objects"):
+            os.mkdir(save_path + "/" + tile_name + "_objects")
+
+        tex.save(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(n) + ".png", "PNG")
+
+        object.jsonData['img'] = tile_name + "_object_" + str(n) + ".png"
+
+        with open(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(n) + ".colls", "wb+") as colls:
+            colls.write(Tilebuffer)
+
+        object.jsonData['colls'] = tile_name + "_object_" + str(n) + ".colls"
+
+        with open(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(n) + ".objlyt", "wb+") as objlyt:
+            objlyt.write(Objbuffer)
+
+        object.jsonData['objlyt'] = tile_name + "_object_" + str(n) + ".objlyt"
+
+        with open(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(n) + ".meta", "wb+") as meta:
+            meta.write(Metabuffer)
+
+        object.jsonData['meta'] = tile_name + "_object_" + str(n) + ".meta"
+
+        if not os.path.isdir(save_path + "/" + tile_name + "_objects"):
+            os.mkdir(save_path + "/" + tile_name + "_objects")
+
+        with open(save_path + "/" + tile_name + "_objects" + "/" + tile_name + "_object_" + str(n) + ".json", 'w+') as outfile:
+            json.dump(object.jsonData, outfile)
+
 
     def clearObjects(self):
         '''Clears the object data'''
@@ -4790,12 +6447,7 @@ class MainWindow(QtWidgets.QMainWindow):
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
         self.objectList.setModel(self.objmodel)
 
-        # Framesheet List
-        self.framesheetList = framesheetList()
-        self.framesheetmodel = QtGui.QStandardItemModel()
-        self.frames = {}
-        SetupFramesheetModel(self, Tileset.animdata)
-        self.framesheetList.setModel(self.framesheetmodel)
+        self.importObject = QtWidgets.QPushButton('Import Object')
 
         # Creates the Tab Widget for behaviours and objects
         self.tabWidget = QtWidgets.QTabWidget()
@@ -4808,8 +6460,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.addWidget(self.objectList, 0, 0, 1, 1)
-        layout.addWidget(self.tileWidget, 0, 1, 1, 1)
+        layout.addWidget(self.importObject, 1, 0, 1, 1)
+        layout.addWidget(self.tileWidget, 0, 1, 2, 1)
         self.container.setLayout(layout)
+
+        # Framesheet List
+        self.framesheetList = framesheetList()
+        self.framesheetmodel = QtGui.QStandardItemModel()
+        self.frames = {}
+        SetupFramesheetModel(self, Tileset.animdata)
+        self.framesheetList.setModel(self.framesheetmodel)
 
         # Third Tab
         self.framesheetContainer = QtWidgets.QWidget()
@@ -4840,13 +6500,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tileDisplay.clicked.connect(self.paintFormat)
         self.tileDisplay.mouseMoved.connect(self.updateInfo)
         self.objectList.selectionModel().currentChanged.connect(self.tileWidget.setObject)
+        self.objectList.doubleClicked.connect(self.saveObject)
+        self.importObject.released.connect(self.importObjFromFile)
 
+        self.framesheetList.doubleClicked.connect(self.saveFramesheet)
         self.tabWidget.tabBarClicked.connect(self.frameEditor.setFramesheet)
 
         # Layout
-        frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 3, Qt.AlignTop)
-        frameLayout.addWidget(self.tileDisplay, 1, 0, 1, 3, Qt.AlignTop | Qt.AlignCenter)
-        frameLayout.addWidget(self.tabWidget, 0, 3, 2, 3)
+        if SplitWindow:
+            frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 3, Qt.AlignTop)
+            frameLayout.addWidget(self.tileDisplay, 1, 0, 1, 3, Qt.AlignTop | Qt.AlignCenter)
+            self.anotherWidget = QtWidgets.QWidget()
+            anotherLayout = QtWidgets.QGridLayout()
+            anotherLayout.addWidget(self.tabWidget, 0, 3, 2, 3)
+            anotherLayout.setMenuBar(QtWidgets.QWidget(self.menuBar()))
+            self.anotherWidget.setLayout(anotherLayout)
+            self.anotherWidget.setWindowTitle (" ")
+            self.anotherWidget.setWindowFlags(Qt.WindowStaysOnTopHint)
+            self.anotherWidget.setAttribute(Qt.WA_DeleteOnClose)
+            self.anotherWidget.destroyed.connect(osExit)
+            self.anotherWidget.show()
+        else:
+            frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 3, Qt.AlignTop)
+            frameLayout.addWidget(self.tileDisplay, 1, 0, 1, 3, Qt.AlignTop | Qt.AlignCenter)
+            frameLayout.addWidget(self.tabWidget, 0, 3, 2, 3)
         self.setCentralWidget(frame)
 
 
@@ -4999,10 +6676,17 @@ class MainWindow(QtWidgets.QMainWindow):
 #############################################################################################
 ####################################### Main Function #######################################
 
+def osExit(self):
+    os._exit(0)
+
 
 if '-nolib' in sys.argv:
     HaveNSMBLib = False
     sys.argv.remove('-nolib')
+
+if '-split' in sys.argv:
+    SplitWindow = True
+    sys.argv.remove('-split')
 
 
 if __name__ == '__main__':
@@ -5011,6 +6695,7 @@ if __name__ == '__main__':
 
     app = QtWidgets.QApplication(sys.argv)
     app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
+    app.setWindowIcon(QtGui.QIcon("Icons/about.png"));
 
     # go to the script path
     path = module_path()
@@ -5022,6 +6707,10 @@ if __name__ == '__main__':
     app.setStyleSheet(qss)
 
     window = MainWindow()
+
+    window.setAttribute(Qt.WA_DeleteOnClose)
+    window.destroyed.connect(osExit)
+
     if len(sys.argv) > 1:
         window.openTilesetFromPath(sys.argv[1])
     window.show()
