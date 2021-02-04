@@ -5203,7 +5203,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def openTileset(self):
         '''Asks the user for a filename, then calls openTilesetFromPath().'''
 
-        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open NSMBW Tileset", window.tilesetPath, "Tileset Files (*.arc)")[0]
+        path = QtWidgets.QFileDialog.getOpenFileName(self, "Open NSMBW Tileset", window.tilesetDialoguePath, "Tileset Files (*.arc)")[0]
 
         if path:
             self.openTilesetFromPath(path)
@@ -5492,7 +5492,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def saveTilesetAs(self):
 
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.arc (*.arc)')[0]
+        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', window.tilesetDialoguePath, '.arc (*.arc)')[0]
         if not fn: return
 
         outdata = self.saving(os.path.basename(str(fn))[:-4])
