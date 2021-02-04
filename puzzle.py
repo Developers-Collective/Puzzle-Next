@@ -6695,12 +6695,13 @@ if __name__ == '__main__':
 
     app = QtWidgets.QApplication(sys.argv)
     app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
-    app.setWindowIcon(QtGui.QIcon("Icons/about.png"));
 
     # go to the script path
     path = module_path()
     if path is not None:
         os.chdir(path)
+
+    app.setWindowIcon(QtGui.QIcon("Icons/about.png"))
 
     with open("dark.qss", 'r') as file:
         qss = file.read()
