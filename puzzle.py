@@ -2557,6 +2557,7 @@ def SetupObjectModel(self, objects, tiles):
 class displayWidget(QtWidgets.QListView):
 
     mouseMoved = QtCoreSignal(int, int)
+    rightClicked = QtCoreSignal(int, int)
 
     def __init__(self, parent=None):
         super(displayWidget, self).__init__(parent)
@@ -2584,8 +2585,12 @@ class displayWidget(QtWidgets.QListView):
 
     def mouseMoveEvent(self, event):
         QtWidgets.QWidget.mouseMoveEvent(self, event)
-
         self.mouseMoved.emit(event.x(), event.y())
+
+
+    def contextMenuEvent(self, event):
+        self.rightClicked.emit(event.x(), event.y())
+        super(displayWidget, self).contextMenuEvent(event)
 
 
     class TileItemDelegate(QtWidgets.QAbstractItemDelegate):
@@ -6499,6 +6504,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connections do things!
         self.tileDisplay.clicked.connect(self.paintFormat)
         self.tileDisplay.mouseMoved.connect(self.updateInfo)
+        self.tileDisplay.rightClicked.connect(self.editHexData)
         self.objectList.selectionModel().currentChanged.connect(self.tileWidget.setObject)
         self.objectList.doubleClicked.connect(self.saveObject)
         self.importObject.released.connect(self.importObjFromFile)
@@ -6528,7 +6534,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def updateInfo(self, x, y):
-
         index = [self.tileDisplay.indexAt(QtCore.QPoint(x, y))]
         curTile = Tileset.tiles[index[0].row()]
         info = self.infoDisplay
@@ -6617,6 +6622,94 @@ class MainWindow(QtWidgets.QMainWindow):
         if 0 <= row <= 15 and 0 <= column <= 15:
             info.numInfo.setText('Slot: %X Row: 0x%X Column: 0x%X' % (Tileset.slot, row, column))
 
+
+    def editHexData(self, x, y):
+        self.index = [self.tileDisplay.indexAt(QtCore.QPoint(x, y))][0]
+        curTile = Tileset.tiles[self.index.row()]
+        
+        self.hexEditWindow = QtWidgets.QWidget()
+        self.hexOkButton = QtWidgets.QPushButton("Set")
+
+        self.spin1 = QtWidgets.QSpinBox()
+        self.spin1.setDisplayIntegerBase(16)
+        self.spin1.setRange(0, 0xFF)
+        self.spin1.setValue(curTile.byte0)
+        self.spin2 = QtWidgets.QSpinBox()
+        self.spin2.setDisplayIntegerBase(16)
+        self.spin2.setRange(0, 0xFF)
+        self.spin2.setValue(curTile.byte1)
+        self.spin3 = QtWidgets.QSpinBox()
+        self.spin3.setDisplayIntegerBase(16)
+        self.spin3.setRange(0, 0xFF)
+        self.spin3.setValue(curTile.byte2)
+        self.spin4 = QtWidgets.QSpinBox()
+        self.spin4.setDisplayIntegerBase(16)
+        self.spin4.setRange(0, 0xFF)
+        self.spin4.setValue(curTile.byte3)
+        self.spin5 = QtWidgets.QSpinBox()
+        self.spin5.setDisplayIntegerBase(16)
+        self.spin5.setRange(0, 0xFF)
+        self.spin5.setValue(curTile.byte4)
+        self.spin6 = QtWidgets.QSpinBox()
+        self.spin6.setDisplayIntegerBase(16)
+        self.spin6.setRange(0, 0xFF)
+        self.spin6.setValue(curTile.byte5)
+        self.spin7 = QtWidgets.QSpinBox()
+        self.spin7.setDisplayIntegerBase(16)
+        self.spin7.setRange(0, 0xFF)
+        self.spin7.setValue(curTile.byte6)
+        self.spin8 = QtWidgets.QSpinBox()
+        self.spin8.setDisplayIntegerBase(16)
+        self.spin8.setRange(0, 0xFF)
+        self.spin8.setValue(curTile.byte7)
+        
+        spinFont = self.spin1.font()
+        spinFont.setCapitalization(QtGui.QFont.AllUppercase)
+        self.spin1.setFont(spinFont)
+        self.spin2.setFont(spinFont)
+        self.spin3.setFont(spinFont)
+        self.spin4.setFont(spinFont)
+        self.spin5.setFont(spinFont)
+        self.spin6.setFont(spinFont)
+        self.spin7.setFont(spinFont)
+        self.spin8.setFont(spinFont)
+
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(self.spin1, 0, 0, 1, 1)
+        layout.addWidget(self.spin2, 0, 1, 1, 1)
+        layout.addWidget(self.spin3, 0, 2, 1, 1)
+        layout.addWidget(self.spin4, 0, 3, 1, 1)
+        layout.addWidget(self.spin5, 0, 4, 1, 1)
+        layout.addWidget(self.spin6, 0, 5, 1, 1)
+        layout.addWidget(self.spin7, 0, 6, 1, 1)
+        layout.addWidget(self.spin8, 0, 7, 1, 1)
+        layout.addWidget(self.hexOkButton, 1, 7, 1, 1)
+        self.hexEditWindow.setLayout(layout)
+
+        self.hexOkButton.released.connect(self.hexSetRaw)
+
+        self.hexEditWindow.setWindowTitle('Set Raw Hex Data')
+        self.hexEditWindow.setFixedSize(self.hexEditWindow.sizeHint())
+        self.hexEditWindow.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
+        self.hexEditWindow.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+        self.hexEditWindow.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        self.hexEditWindow.show()
+        
+        
+    def hexSetRaw(self):
+        self.hexEditWindow.hide()
+        
+        curTile = Tileset.tiles[self.index.row()]
+        
+        curTile.byte0 = self.spin1.value()
+        curTile.byte1 = self.spin2.value()
+        curTile.byte2 = self.spin3.value()
+        curTile.byte3 = self.spin4.value()
+        curTile.byte4 = self.spin5.value()
+        curTile.byte5 = self.spin6.value()
+        curTile.byte6 = self.spin7.value()
+        curTile.byte7 = self.spin8.value()
+        
 
     def paintFormat(self, index):
         if self.tabWidget.currentIndex() == 1:
