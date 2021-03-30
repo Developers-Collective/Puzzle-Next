@@ -6617,8 +6617,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                 hex(curTile.byte0), hex(curTile.byte1), hex(curTile.byte2), hex(curTile.byte3),
                                 hex(curTile.byte4), hex(curTile.byte5), hex(curTile.byte6), hex(curTile.byte7)))
 
-        row = index[0].row() % 16
-        column = index[0].row() // 16
+        column = index[0].row() % 16
+        row = index[0].row() // 16
         if 0 <= row <= 15 and 0 <= column <= 15:
             info.numInfo.setText('Slot: %X Row: 0x%X Column: 0x%X' % (Tileset.slot, row, column))
 
