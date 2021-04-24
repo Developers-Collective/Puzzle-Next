@@ -1,3 +1,5 @@
+Other/recent.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -99,6 +101,3 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
-Other/recent.txt
-Other/recent.txt
-Other/recent.txt

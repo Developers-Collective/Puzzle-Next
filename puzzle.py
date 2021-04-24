@@ -314,6 +314,8 @@ class TilesetClass():
         self.objects = []
         self.animdata = {}
         self.unknownFiles = {}
+        self.animTilesBin = 0
+        self.randTilesBin = 0
 
         self.slot = 0
         self.placeNullChecked = False
@@ -364,6 +366,8 @@ class TilesetClass():
         self.objects = []
         self.animdata = {}
         self.unknownFiles = {}
+        self.animTilesBin = 0
+        self.randTilesBin = 0
 
 
 #############################################################################################
@@ -1838,8 +1842,10 @@ class randTilesOverlord(QtWidgets.QWidget):
 
         self.importBin = QtWidgets.QPushButton('Import from .bin')
         self.importXml = QtWidgets.QPushButton('Import from .xml')
+        self.importArc = QtWidgets.QPushButton('Import from tileset')
         self.exportBin = QtWidgets.QPushButton('Export to .bin')
         self.exportXml = QtWidgets.QPushButton('Export to .xml')
+        self.exportArc = QtWidgets.QPushButton('Export to tileset')
 
         self.exceptionLabel = QtWidgets.QLabel('Empty ...')
 
@@ -1848,8 +1854,10 @@ class randTilesOverlord(QtWidgets.QWidget):
         
         self.importBin.released.connect(self.importFromBin)
         self.importXml.released.connect(self.importFromXml)
+        self.importArc.released.connect(self.importFromArc)
         self.exportBin.released.connect(self.exportToBin)
         self.exportXml.released.connect(self.exportToXml)
+        self.exportArc.released.connect(self.exportToArc)
 
         self.text.textChanged.connect(self.updateAfterEdit)
 
@@ -1864,8 +1872,10 @@ class randTilesOverlord(QtWidgets.QWidget):
 
         layout.addWidget(self.importBin, 3, 0, 1, 1)
         layout.addWidget(self.importXml, 3, 1, 1, 1)
+        layout.addWidget(self.importArc, 4, 0, 1, 2)
         layout.addWidget(self.exportBin, 3, 2, 1, 1)
         layout.addWidget(self.exportXml, 3, 3, 1, 1)
+        layout.addWidget(self.exportArc, 4, 2, 1, 2)
 
         layout.setRowMinimumHeight(1, 40)
 
@@ -1879,7 +1889,6 @@ class randTilesOverlord(QtWidgets.QWidget):
 
     def importFromBin(self, path=""):
         RandTiles.clear()
-
         self.isOpeningFile = True
 
         if not path:
@@ -1907,11 +1916,23 @@ class randTilesOverlord(QtWidgets.QWidget):
         
         try:
             addRandomizationsFromXml(RandTiles, xml)
+            self.text.setPlainText(xml)
         except Exception as e:
             self.exceptionLabel.setText('Exception: {}'.format(str(e)))
-            return
-
-        self.text.setPlainText(xml)
+    
+    
+    def importFromArc(self):
+        if Tileset.randTilesBin:
+            RandTiles.clear()
+            
+            try:
+                xml = addRandomizationsFromBinFile(RandTiles, Tileset.randTilesBin, False)
+                self.text.setPlainText(xml)
+            except Exception as e:
+                self.exceptionLabel.setText('Exception: {}'.format(str(e)))
+        
+        else:
+            QtWidgets.QMessageBox.warning(self, "Open RandTiles.bin", "The tileset has no RandTiles.bin file.", QtWidgets.QMessageBox.Cancel)
 
 
     def updateAfterEdit(self):
@@ -1925,6 +1946,7 @@ class randTilesOverlord(QtWidgets.QWidget):
                 labelMessage = 'Exception: {}'.format(str(e))
                 
             self.exceptionLabel.setText(labelMessage)
+
 
     def exportToBin(self):
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Save RandTiles .bin file', window.randTilesBINDialoguePath, 'RandTiles File (*.bin)')[0]
@@ -1944,13 +1966,21 @@ class randTilesOverlord(QtWidgets.QWidget):
             f.write(self.text.toPlainText())
 
 
+    def exportToArc(self):
+        encodeRandTiles(RandTiles)
+        Tileset.randTilesBin = RandTiles.bin
+
+
 #############################################################################################
 ################################### RandTiles functions #####################################
 
 
-def addRandomizationsFromBinFile(dest, bin):
-    with open(bin, 'rb') as f:
-        bin_ = f.read()
+def addRandomizationsFromBinFile(dest, bin, isPath = True):
+    if isPath:
+        with open(bin, 'rb') as f:
+            bin_ = f.read()
+    else:
+        bin_ = bin
 
     header = struct.unpack('>4sI', bin_[:8])
 
@@ -2218,8 +2248,10 @@ class animTilesOverlord(QtWidgets.QWidget):
 
         self.importBin = QtWidgets.QPushButton('Import from .bin')
         self.importTxt = QtWidgets.QPushButton('Import from .txt')
+        self.importArc = QtWidgets.QPushButton('Import from tileset')
         self.exportBin = QtWidgets.QPushButton('Export to .bin')
         self.exportTxt = QtWidgets.QPushButton('Export to .txt')
+        self.exportArc = QtWidgets.QPushButton('Export to tileset')
 
 
         # Connections
@@ -2227,8 +2259,10 @@ class animTilesOverlord(QtWidgets.QWidget):
 
         self.importBin.released.connect(self.importFromBin)
         self.importTxt.released.connect(self.importFromTxt)
+        self.importArc.released.connect(self.importFromArc)
         self.exportBin.released.connect(self.exportToBin)
         self.exportTxt.released.connect(self.exportToTxt)
+        self.exportArc.released.connect(self.exportToArc)
 
         self.text.textChanged.connect(self.updateAfterEdit)
 
@@ -2241,8 +2275,10 @@ class animTilesOverlord(QtWidgets.QWidget):
 
         layout.addWidget(self.importBin, 2, 0, 1, 1)
         layout.addWidget(self.importTxt, 2, 1, 1, 1)
+        layout.addWidget(self.importArc, 3, 0, 1, 2)
         layout.addWidget(self.exportBin, 2, 2, 1, 1)
         layout.addWidget(self.exportTxt, 2, 3, 1, 1)
+        layout.addWidget(self.exportArc, 3, 2, 1, 2)
 
         layout.setRowMinimumHeight(1, 40)
 
@@ -2287,6 +2323,20 @@ class animTilesOverlord(QtWidgets.QWidget):
         self.text.setPlainText(txt)
 
 
+    def importFromArc(self, path=""):
+        global AnimTiles
+        
+        if Tileset.animTilesBin:
+            AnimTiles.clear()
+            addAnimationsFromBinFile(AnimTiles, Tileset.animTilesBin, False)
+            txt = animationsToText(AnimTiles)
+
+            self.text.setPlainText(txt)
+            
+        else:
+            QtWidgets.QMessageBox.warning(self, "Open AnimTiles.bin", "The tileset has no AnimTiles.bin file.", QtWidgets.QMessageBox.Cancel)
+
+
     def exportToBin(self):
         global AnimTiles
 
@@ -2307,6 +2357,13 @@ class animTilesOverlord(QtWidgets.QWidget):
             f.write(self.text.toPlainText())
 
 
+    def exportToArc(self):
+        global AnimTiles
+        
+        encodeAnimTiles(AnimTiles)
+        Tileset.animTilesBin = AnimTiles.bin
+
+
     def updateAfterEdit(self):
         try:
             addAnimationsFromText(AnimTiles, self.text.toPlainText())
@@ -2318,10 +2375,12 @@ class animTilesOverlord(QtWidgets.QWidget):
 ################################### AnimTiles functions #####################################
 
 
-def addAnimationsFromBinFile(dest, bin):
-
-    with open(bin, 'rb') as f:
-        bin_ = f.read()
+def addAnimationsFromBinFile(dest, bin, isPath = True):
+    if isPath:
+        with open(bin, 'rb') as f:
+            bin_ = f.read()
+    else:
+        bin_ = bin
 
     header = struct.unpack('>4sI', bin_[:8])
 
@@ -5254,6 +5313,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 metadata = arc[key]
             elif key.startswith('BG_unt/') and key.endswith('.bin'):
                 objstrings = arc[key]
+            elif key == 'BG_new/AnimTiles.bin':
+                Tileset.animTilesBin = arc[key]
+            elif key == 'BG_new/RandTiles.bin':
+                Tileset.randTilesBin = arc[key]
             else:
                 Tileset.unknownFiles[key] = arc[key]
 
@@ -5546,6 +5609,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.sortedAnimdata = sorted(Tileset.animdata.items())
         arcFiles.update(self.sortedAnimdata)
+
+        if Tileset.animTilesBin or Tileset.randTilesBin:
+            arcFiles['BG_new'] = None
+            if Tileset.animTilesBin:
+                arcFiles['BG_new/AnimTiles.bin'] = Tileset.animTilesBin
+            if Tileset.randTilesBin:
+                arcFiles['BG_new/RandTiles.bin'] = Tileset.randTilesBin
+
 
         arcFiles.update(Tileset.unknownFiles)
 
