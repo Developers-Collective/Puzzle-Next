@@ -5287,7 +5287,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(os.path.basename(path))
         Tileset.clear()
 
-        name = path[str(path).rfind('/')+1:-4]
+        basename = os.path.basename(path[str(path).rfind('/')+1:-4])
 
         with open(path,'rb') as file:
             data = file.read()
@@ -5435,8 +5435,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 Tileset.slot = max(slots, key=slots.count)
             del slots
 
-            if name[:4] in ('Pa0_', 'Pa1_', 'Pa2_', 'Pa3_'):
-                slot = int(name[2])
+            if basename[:4] in ('Pa0_', 'Pa1_', 'Pa2_', 'Pa3_'):
+                slot = int(basename[2])
                 if slot != Tileset.slot:
                     QtWidgets.QMessageBox.information(self, "Warning", "Determined tileset slot ({}) does not match with the slot in the filename ({})!".format(Tileset.slot, slot))
 
