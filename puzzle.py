@@ -4681,6 +4681,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.readIni()
 
+        self.settingsInit()
+
         self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed))
         self.setWindowTitle("New Tileset")
 
@@ -4712,14 +4714,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def readIni(self):
-        self.tilesetPath=""
-        self.tilesetDialoguePath=""
-        self.animTilesPath=""
-        self.animTilesTXTDialoguePath=""
-        self.animTilesBINDialoguePath=""
-        self.randTilesPath=""
-        self.randTilesXMLDialoguePath=""
-        self.randTilesBINDialoguePath=""
+        self.tilesetPath = ""
+        self.tilesetDialoguePath = ""
+        self.animTilesPath = ""
+        self.animTilesTXTDialoguePath = ""
+        self.animTilesBINDialoguePath = ""
+        self.randTilesPath = ""
+        self.randTilesXMLDialoguePath = ""
+        self.randTilesBINDialoguePath = ""
+        self.geometrySettings = None
+        self.windowStateSettings = None
 
         f = open("Other/settings.ini", "r")
         for line in f.read().splitlines():
@@ -4740,6 +4744,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.randTilesXMLDialoguePath = attr[1]
             elif attr[0] == "randTilesBINDialoguePath":
                 self.randTilesBINDialoguePath = attr[1]
+            elif attr[0] == "geometry":
+                self.restoreGeometry(QtCore.QByteArray.fromHex(bytes(attr[1], "ascii")))
+            elif attr[0] == "windowState":
+                self.restoreState(QtCore.QByteArray.fromHex(bytes(attr[1], "ascii")))
+            
 
     def saveIni(self):
         self.tilesetPath = self.tilesetPathBox.text()
@@ -4760,13 +4769,20 @@ class MainWindow(QtWidgets.QMainWindow):
         settingsText += "\nrandTilesPath=" + self.randTilesPath
         settingsText += "\nrandTilesXMLDialoguePath=" + self.randTilesXMLDialoguePath
         settingsText += "\nrandTilesBINDialoguePath=" + self.randTilesBINDialoguePath
+        settingsText += "\ngeometry=" + bytes(self.saveGeometry().toHex()).decode('ascii')
+        settingsText += "\nwindowState=" + bytes(self.saveState().toHex()).decode('ascii')
 
         f = open("Other/settings.ini", 'w')
         f.write(settingsText)
         self.settingsWindow.hide()
 
 
-    def settings(self):
+    def closeEvent(self, event):
+        self.saveIni()
+        QtWidgets.QMainWindow.closeEvent(self, event)
+
+
+    def settingsInit(self):
         self.settingsWindow = QtWidgets.QWidget()
         self.description = QtWidgets.QLabel('Settings')
         font = self.description.font()
@@ -4841,8 +4857,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settingsWindow.setWindowFlag(Qt.WindowMinimizeButtonHint, False)
         self.settingsWindow.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
         self.settingsWindow.setWindowTitle('Settings')
-        self.settingsWindow.show()
 
+    def settings(self):
+        self.settingsWindow.show()
 
     def getTilesetPath(self):
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Choose a file ...", '', "Tileset (*.arc)")[0]
@@ -6672,17 +6689,35 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 parameter = palette.ParameterList[coreType][0]
         else:
-            parameter = palette.ParameterList[coreType][curTile.byte7]
+            try:
+                parameter = palette.ParameterList[coreType][curTile.byte7]
+            except:
+                parameter = ["Unknown", QtGui.QPixmap(24, 24)]
+                parameter[1].fill(Qt.transparent)
+
+        try:
+            info.coreImage.setPixmap(palette.coreTypes[coreType][1].pixmap(24,24))
+            info.coreInfo.setText(palette.coreTypes[coreType][0])
+        except:
+            info.coreImage.clear()
+            info.coreInfo.setText("Unknown")
+        try:
+            info.terrainImage.setPixmap(palette.terrainTypes[curTile.byte5][1].pixmap(24,24))
+            info.terrainInfo.setText(palette.terrainTypes[curTile.byte5][0])
+        except:
+            info.terrainImage.clear()
+            info.terrainInfo.setText("Unknown")
+        try:
+            info.parameterImage.setPixmap(parameter[1].pixmap(24,24))
+            info.paramInfo.setText(parameter[0])
+        except:
+            info.parameterImage.clear()
+            info.paramInfo.setText("Unknown")
 
 
-        info.coreImage.setPixmap(palette.coreTypes[coreType][1].pixmap(24,24))
-        info.terrainImage.setPixmap(palette.terrainTypes[curTile.byte5][1].pixmap(24,24))
-        info.parameterImage.setPixmap(parameter[1].pixmap(24,24))
-
-        info.coreInfo.setText(palette.coreTypes[coreType][0])
         info.propertyInfo.setText("Properties:\n{0}".format(propertyText))
-        info.terrainInfo.setText(palette.terrainTypes[curTile.byte5][0])
-        info.paramInfo.setText(parameter[0])
+        
+
 
         info.hexdata.setText('Hex Data: {0} {1} {2} {3} {4} {5} {6} {7}'.format(
                                 hex(curTile.byte0), hex(curTile.byte1), hex(curTile.byte2), hex(curTile.byte3),
