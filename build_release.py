@@ -16,17 +16,17 @@ import PyInstaller.__main__
 # projects that use the same technologies (Reggie, Puzzle, BRFNTify,
 # etc)
 
-PROJECT_NAME = 'Puzzle'
-FULL_PROJECT_NAME = 'Puzzle Tileset Editor'
+PROJECT_NAME = 'PuzzleNext'
+FULL_PROJECT_NAME = 'Puzzle Next - Tileset Editor'
 PROJECT_VERSION = '1.0'
 
 WIN_ICON = None
 MAC_ICON = None
-MAC_BUNDLE_IDENTIFIER = 'ca.chronometry.puzzle'
+MAC_BUNDLE_IDENTIFIER = 'ca.chronometry.puzzleNext'
 
 SCRIPT_FILE = 'puzzle.py'
-DATA_FOLDERS = ['Icons']
-DATA_FILES = ['readme.txt', 'license.txt']
+DATA_FOLDERS = ['Icons', 'MenuIcons', 'Other', 'QCodeEditor']
+DATA_FILES = ['readme.txt', 'dark.qss', 'LICENSE', 'LICENSE-dark.qss', 'LICENSE-QCodeEditor']
 
 # macOS only
 AUTO_APP_BUNDLE_NAME = SCRIPT_FILE.split('.')[0] + '.app'
@@ -122,7 +122,7 @@ print('>>')
 # Excludes
 excludes = ['calendar', 'datetime', 'difflib', 'doctest', 'hashlib', 'inspect',
     'locale', 'multiprocessing', 'optpath', 'os2emxpath', 'pdb',
-    'select', 'socket', 'ssl', 'threading', 'unittest',
+    'select', 'socket', 'ssl', 'unittest',
     'FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter']
 
 if sys.platform == 'nt':
