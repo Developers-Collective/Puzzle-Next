@@ -158,6 +158,8 @@ class QCodeEditor(QPlainTextEdit):
             self.editor.updateRequest.connect(self.updateContents)
             self.font = QFont()
             self.numberBarColor = QColor("#171717")
+            self.numberBarFontColor = QColor("#717171")
+            self.numberBarSelectedFontColor = QColor("#FFFFFF")
 
 
         def paintEvent(self, event):
@@ -178,10 +180,10 @@ class QCodeEditor(QPlainTextEdit):
                 # We want the line number for the selected line to be bold.
                 if blockNumber == self.editor.textCursor().blockNumber() and self.editor.hasFocus():
                     self.font.setBold(True)
-                    painter.setPen(QColor("#FFFFFF"))
+                    painter.setPen(self.numberBarSelectedFontColor)
                 else:
                     self.font.setBold(False)
-                    painter.setPen(QColor("#717171"))
+                    painter.setPen(self.numberBarFontColor)
                 painter.setFont(self.font)
 
                 # Draw the line number right justified at the position of the line.
@@ -255,6 +257,18 @@ class QCodeEditor(QPlainTextEdit):
         self.appendPlainText("\n\n\n\n\n\n\n\n\n\n")
         self.clear()
 
+    def changeStyle(self, isDarkMode):
+        if isDarkMode:
+            self.number_bar.numberBarColor = QColor("#171717")
+            self.number_bar.numberBarFontColor = QColor("#717171")
+            self.number_bar.numberBarSelectedFontColor = QColor("#FFFFFF")
+            self.currentLineColor = QColor("#171717")
+        else:
+            self.number_bar.numberBarColor = QColor("#C1C1C1")
+            self.number_bar.numberBarFontColor = QColor("#171717")
+            self.number_bar.numberBarSelectedFontColor = QColor("#000000")
+            self.currentLineColor = QColor("#C1C1C1")
+        self.highligtCurrentLine(True)
 
     def focusOut(self, event):
         self.original_out(event)

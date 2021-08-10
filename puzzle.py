@@ -4680,6 +4680,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.newTileset()
 
         self.readIni()
+        
+        self.setColorMode()
 
         self.settingsInit()
 
@@ -4724,6 +4726,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.randTilesBINDialoguePath = ""
         self.geometrySettings = None
         self.windowStateSettings = None
+        self.isDarkMode = True
 
         f = open("Other/settings.ini", "r")
         for line in f.read().splitlines():
@@ -4748,6 +4751,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.restoreGeometry(QtCore.QByteArray.fromHex(bytes(attr[1], "ascii")))
             elif attr[0] == "windowState":
                 self.restoreState(QtCore.QByteArray.fromHex(bytes(attr[1], "ascii")))
+            elif attr[0] == "isDarkMode":
+                self.isDarkMode = attr[1] == "True"
             
 
     def saveIni(self):
@@ -4759,6 +4764,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.randTilesPath = self.randTilesPathBox.text()
         self.randTilesXMLDialoguePath = self.randTilesXMLDialoguePathBox.text()
         self.randTilesBINDialoguePath = self.randTilesBINDialoguePathBox.text()
+        self.isDarkMode = self.isDarkModeCheckBox.isChecked()
 
         settingsText = ""
         settingsText += "tilesetPath=" + self.tilesetPath
@@ -4771,11 +4777,32 @@ class MainWindow(QtWidgets.QMainWindow):
         settingsText += "\nrandTilesBINDialoguePath=" + self.randTilesBINDialoguePath
         settingsText += "\ngeometry=" + bytes(self.saveGeometry().toHex()).decode('ascii')
         settingsText += "\nwindowState=" + bytes(self.saveState().toHex()).decode('ascii')
+        settingsText += "\nisDarkMode=" + str(self.isDarkMode)
 
         f = open("Other/settings.ini", 'w')
         f.write(settingsText)
         self.settingsWindow.hide()
+        
+        self.setColorMode()
+        
 
+    def setColorMode(self):
+        if self.isDarkMode:
+            with open("dark.qss", 'r') as file:
+                qss = file.read()
+            app.setStyleSheet(qss)
+            self.animTilesEditor.text.changeStyle(True)
+            self.animTilesEditor.text.highligtCurrentLine()
+            self.randTilesEditor.text.changeStyle(True)        
+            self.randTilesEditor.text.highligtCurrentLine()
+        else:
+            with open("light.qss", 'r') as file:
+                qss = file.read()
+            app.setStyleSheet(qss)
+            self.animTilesEditor.text.changeStyle(False)
+            self.animTilesEditor.text.highligtCurrentLine()
+            self.randTilesEditor.text.changeStyle(False)        
+            self.randTilesEditor.text.highligtCurrentLine()
 
     def closeEvent(self, event):
         self.saveIni()
@@ -4817,6 +4844,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.randTilesBINDialoguePathBox = QtWidgets.QLineEdit(self.randTilesBINDialoguePath)
         self.randTilesBINDialoguePathBox.setPlaceholderText('Start in this directory when opening/saving a RandTiles.bin file ...')
         self.randTilesBINDialoguePathOpen = QtWidgets.QPushButton('Select')
+        self.isDarkModeCheckBox = QtWidgets.QCheckBox("Dark Mode")
+        self.isDarkModeCheckBox.setChecked(self.isDarkMode)
         self.saveSettings = QtWidgets.QPushButton('Save')
 
         layout = QtWidgets.QGridLayout()
@@ -4840,6 +4869,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.randTilesXMLDialoguePathOpen, 10, 3, 1, 1)
         layout.addWidget(self.randTilesBINDialoguePathBox, 11, 0, 1, 3)
         layout.addWidget(self.randTilesBINDialoguePathOpen, 11, 3, 1, 1)
+        layout.addWidget(self.isDarkModeCheckBox, 12, 0, 1, 3)
         layout.addWidget(self.saveSettings, 12, 3, 1, 1)
         self.settingsWindow.setLayout(layout)
 
@@ -6616,8 +6646,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.anotherWidget.show()
         else:
             frameLayout.addWidget(self.infoDisplay, 0, 0, 1, 3, Qt.AlignTop)
-            frameLayout.addWidget(self.tileDisplay, 1, 0, 1, 3, Qt.AlignTop | Qt.AlignCenter)
-            frameLayout.addWidget(self.tabWidget, 0, 3, 2, 3)
+            frameLayout.addWidget(self.tileDisplay, 1, 0, 1, 3, Qt.AlignCenter)
+            frameLayout.addWidget(self.tabWidget, 0, 3, 3, 3)
         self.setCentralWidget(frame)
 
 
@@ -6901,10 +6931,6 @@ if __name__ == '__main__':
         os.chdir(path)
 
     app.setWindowIcon(QtGui.QIcon("Icons/about.png"))
-
-    with open("dark.qss", 'r') as file:
-        qss = file.read()
-    app.setStyleSheet(qss)
 
     window = MainWindow()
 
