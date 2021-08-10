@@ -26,7 +26,7 @@ MAC_BUNDLE_IDENTIFIER = 'ca.chronometry.puzzleNext'
 
 SCRIPT_FILE = 'puzzle.py'
 DATA_FOLDERS = ['Icons', 'MenuIcons', 'Other', 'QCodeEditor']
-DATA_FILES = ['readme.txt', 'dark.qss', 'LICENSE', 'LICENSE-dark.qss', 'LICENSE-QCodeEditor']
+DATA_FILES = ['readme.txt', 'dark.qss', 'light.qss', 'LICENSE', 'LICENSE-dark.qss', 'LICENSE-QCodeEditor']
 
 # macOS only
 AUTO_APP_BUNDLE_NAME = SCRIPT_FILE.split('.')[0] + '.app'
