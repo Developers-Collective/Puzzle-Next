@@ -4753,7 +4753,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.restoreState(QtCore.QByteArray.fromHex(bytes(attr[1], "ascii")))
             elif attr[0] == "isDarkMode":
                 self.isDarkMode = attr[1] == "True"
-            
+
 
     def saveIni(self):
         self.tilesetPath = self.tilesetPathBox.text()
@@ -4784,7 +4784,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settingsWindow.hide()
         
         self.setColorMode()
-        
+
 
     def setColorMode(self):
         if self.isDarkMode:
@@ -4803,6 +4803,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.animTilesEditor.text.highligtCurrentLine()
             self.randTilesEditor.text.changeStyle(False)        
             self.randTilesEditor.text.highligtCurrentLine()
+        self.randTilesEditor.text.highlighter.setHighlighterColors(self.isDarkMode)
+        text = self.randTilesEditor.text.toPlainText()
+        self.randTilesEditor.text.setPlainText(text)
+
 
     def closeEvent(self, event):
         self.saveIni()

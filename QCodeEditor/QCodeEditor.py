@@ -44,34 +44,50 @@ class XMLHighlighter(QSyntaxHighlighter):
         self.highlightingRules = []
         self.searchRules = []
 
-        xmlElementFormat = QTextCharFormat()
-        xmlElementFormat.setForeground(QColor("#00ee00"))
-        self.highlightingRules.append((QRegExp("\\b[A-Za-z0-9_]+(?=[\s/>])"), xmlElementFormat))
+        self.xmlElementFormat = QTextCharFormat()
+        self.xmlElementFormat.setForeground(QColor("#00ee00"))
+        self.highlightingRules.append((QRegExp("\\b[A-Za-z0-9_]+(?=[\s/>])"), self.xmlElementFormat))
 
-        xmlAttributeFormat = QTextCharFormat()
-        xmlAttributeFormat.setFontItalic(True)
-        xmlAttributeFormat.setForeground(QColor("#d000d0"))
-        self.highlightingRules.append((QRegExp("\\b[A-Za-z0-9_]+(?=\\=)"), xmlAttributeFormat))
-        self.highlightingRules.append((QRegExp("="), xmlAttributeFormat))
+        self.xmlAttributeFormat = QTextCharFormat()
+        self.xmlAttributeFormat.setFontItalic(True)
+        self.xmlAttributeFormat.setForeground(QColor("#d000d0"))
+        self.highlightingRules.append((QRegExp("\\b[A-Za-z0-9_]+(?=\\=)"), self.xmlAttributeFormat))
+        self.highlightingRules.append((QRegExp("="), self.xmlAttributeFormat))
 
         self.valueFormat = QTextCharFormat()
         self.valueFormat.setForeground(QColor("#55dddd"))
         self.valueStartExpression = QRegExp("\"")
         self.valueEndExpression = QRegExp("\"(?=[\s></])")
 
-        singleLineCommentFormat = QTextCharFormat()
-        singleLineCommentFormat.setForeground(QColor("#b3b3b3"))
-        self.highlightingRules.append((QRegExp("<!--[^\n]*-->"), singleLineCommentFormat))
+        self.singleLineCommentFormat = QTextCharFormat()
+        self.singleLineCommentFormat.setForeground(QColor("#b3b3b3"))
+        self.highlightingRules.append((QRegExp("<!--[^\n]*-->"), self.singleLineCommentFormat))
 
-        textFormat = QTextCharFormat()
-        textFormat.setForeground(QColor("#FFFFFF"))
+        self.textFormat = QTextCharFormat()
+        self.textFormat.setForeground(QColor("#FFFFFF"))
         # (?<=...)  - lookbehind is not supported
-        self.highlightingRules.append((QRegExp(">(.+)(?=</)"), textFormat))
+        self.highlightingRules.append((QRegExp(">(.+)(?=</)"), self.textFormat))
 
-        keywordFormat = QTextCharFormat()
-        keywordFormat.setForeground(QColor("#FFFFFF"))
+        self.keywordFormat = QTextCharFormat()
+        self.keywordFormat.setForeground(QColor("#FFFFFF"))
         keywordPatterns = ["\\b?xml\\b", "/>", ">", "<", "</"] 
-        self.highlightingRules += [(QRegExp(pattern), keywordFormat) for pattern in keywordPatterns]
+        self.highlightingRules += [(QRegExp(pattern), self.keywordFormat) for pattern in keywordPatterns]
+
+    def setHighlighterColors(self, isDarkMode):
+        if isDarkMode:
+            self.xmlElementFormat.setForeground(QColor("#00ee00"))
+            self.xmlAttributeFormat.setForeground(QColor("#d000d0"))
+            self.valueFormat.setForeground(QColor("#55dddd"))
+            self.singleLineCommentFormat.setForeground(QColor("#b3b3b3"))
+            self.textFormat.setForeground(QColor("#FFFFFF"))
+            self.keywordFormat.setForeground(QColor("#FFFFFF"))
+        else:
+            self.xmlElementFormat.setForeground(QColor("#22863a"))
+            self.xmlAttributeFormat.setForeground(QColor("#6f42c1"))
+            self.valueFormat.setForeground(QColor("#032f62"))
+            self.singleLineCommentFormat.setForeground(QColor("#6a737d"))
+            self.textFormat.setForeground(QColor("#24292e"))
+            self.keywordFormat.setForeground(QColor("#24292e"))        
 
     #VIRTUAL FUNCTION WE OVERRIDE THAT DOES ALL THE COLLORING
     def highlightBlock(self, text):
