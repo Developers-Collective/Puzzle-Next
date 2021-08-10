@@ -2245,6 +2245,8 @@ class animTilesOverlord(QtWidgets.QWidget):
         self.searchText.setPlaceholderText("Search ...")
 
         self.text = QCodeEditor.QCodeEditor(SyntaxHighlighter=QCodeEditor.SearchHighlighter)
+        
+        self.exceptionLabel = QtWidgets.QLabel('Empty ...')
 
         self.importBin = QtWidgets.QPushButton('Import from .bin')
         self.importTxt = QtWidgets.QPushButton('Import from .txt')
@@ -2272,13 +2274,13 @@ class animTilesOverlord(QtWidgets.QWidget):
         layout.addWidget(self.searchText, 0, 0, 1, 4)
 
         layout.addWidget(self.text, 1, 0, 1, 4)
-
-        layout.addWidget(self.importBin, 2, 0, 1, 1)
-        layout.addWidget(self.importTxt, 2, 1, 1, 1)
-        layout.addWidget(self.importArc, 3, 0, 1, 2)
-        layout.addWidget(self.exportBin, 2, 2, 1, 1)
-        layout.addWidget(self.exportTxt, 2, 3, 1, 1)
-        layout.addWidget(self.exportArc, 3, 2, 1, 2)
+        layout.addWidget(self.exceptionLabel, 2, 0, 1, 4)
+        layout.addWidget(self.importBin, 3, 0, 1, 1)
+        layout.addWidget(self.importTxt, 3, 1, 1, 1)
+        layout.addWidget(self.importArc, 4, 0, 1, 2)
+        layout.addWidget(self.exportBin, 3, 2, 1, 1)
+        layout.addWidget(self.exportTxt, 3, 3, 1, 1)
+        layout.addWidget(self.exportArc, 4, 2, 1, 2)
 
         layout.setRowMinimumHeight(1, 40)
 
@@ -2298,10 +2300,13 @@ class animTilesOverlord(QtWidgets.QWidget):
             path = QtWidgets.QFileDialog.getOpenFileName(self, "Open AnimTiles .bin file", window.animTilesBINDialoguePath, "AnimTiles File (*.bin)")[0]
             if not path: return
 
-        addAnimationsFromBinFile(AnimTiles, path)
-        txt = animationsToText(AnimTiles)
+        try:
+            addAnimationsFromBinFile(AnimTiles, path)
+            txt = animationsToText(AnimTiles)
 
-        self.text.setPlainText(txt)
+            self.text.setPlainText(txt)
+        except Exception as e:
+            self.exceptionLabel.setText('Exception: {}'.format(str(e)))
 
 
     def importFromTxt(self, path=""):
@@ -2315,12 +2320,15 @@ class animTilesOverlord(QtWidgets.QWidget):
         with open(path, 'r') as file:
             txt = file.read()
 
-        addAnimationsFromText(AnimTiles, txt)
+        try:
+            addAnimationsFromText(AnimTiles, txt)
 
-        with open(path, 'r') as file:
-            txt = file.read()
+            with open(path, 'r') as file:
+                txt = file.read()
 
-        self.text.setPlainText(txt)
+            self.text.setPlainText(txt)
+        except Exception as e:
+            self.exceptionLabel.setText('Exception: {}'.format(str(e)))
 
 
     def importFromArc(self, path=""):
@@ -2328,11 +2336,14 @@ class animTilesOverlord(QtWidgets.QWidget):
         
         if Tileset.animTilesBin:
             AnimTiles.clear()
-            addAnimationsFromBinFile(AnimTiles, Tileset.animTilesBin, False)
-            txt = animationsToText(AnimTiles)
+            try:
+                addAnimationsFromBinFile(AnimTiles, path)
+                txt = animationsToText(AnimTiles)
 
-            self.text.setPlainText(txt)
-            
+                self.text.setPlainText(txt)
+            except Exception as e:
+                self.exceptionLabel.setText('Exception: {}'.format(str(e)))
+
         else:
             QtWidgets.QMessageBox.warning(self, "Open AnimTiles.bin", "The tileset has no AnimTiles.bin file.", QtWidgets.QMessageBox.Cancel)
 
@@ -2368,7 +2379,7 @@ class animTilesOverlord(QtWidgets.QWidget):
         try:
             addAnimationsFromText(AnimTiles, self.text.toPlainText())
         except Exception as e:
-            print('Exception: {}'.format(str(e)))
+            self.exceptionLabel.setText('Exception: {}'.format(str(e)))
 
 
 #############################################################################################

@@ -37,9 +37,12 @@
 
 QToolTip
 {
-    background-color: black;
-    color: white;
+    border: 1px solid #eff0f1;
+    background-color: #31363b;
+    alternate-background-color: #3b4045;
+    color: #eff0f1;
     padding: 0.5ex;
+    opacity: 200;
 }
 
 QWidget
