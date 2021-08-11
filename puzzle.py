@@ -2378,6 +2378,7 @@ class animTilesOverlord(QtWidgets.QWidget):
     def updateAfterEdit(self):
         try:
             addAnimationsFromText(AnimTiles, self.text.toPlainText())
+            self.exceptionLabel.setText('Current file is valid!')
         except Exception as e:
             self.exceptionLabel.setText('Exception: {}'.format(str(e)))
 
@@ -4126,6 +4127,7 @@ class tileWidget(QtWidgets.QWidget):
 
         TileMenu.addAction('Set tile...', self.setTile)
         TileMenu.addAction('Set item...', self.setItem)
+        TileMenu.addAction('Set raw data...', self.setRaw)
 
         TileMenu.exec_(event.globalPos())
 
@@ -4317,6 +4319,30 @@ class tileWidget(QtWidgets.QWidget):
             self.updateList()
 
 
+    def setRaw(self):
+        global Tileset
+
+        x = self.contX
+        y = self.contY
+
+        obj = Tileset.objects[self.object].tiles[y][x]
+
+        dlg = self.setRawDialog(obj)
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            # Do stuff
+            repeating = dlg.repeating.value()
+            tilenum = dlg.tilenum.value()
+            slot = dlg.slot.value()
+            item = dlg.item.value()
+
+            Tileset.objects[self.object].tiles[y][x] = (repeating, tilenum, (slot & 3) | (item << 2))
+
+            window.tileWidget.setObject(window.objectList.currentIndex())
+            window.tileWidget.update()
+            self.update()
+            self.updateList()
+
+
     class setItemDialog(QtWidgets.QDialog):
 
         def __init__(self, initialIndex=0):
@@ -4355,6 +4381,47 @@ class tileWidget(QtWidgets.QWidget):
             self.vlayout.addWidget(self.buttons)
             self.setLayout(self.vlayout)
 
+
+    class setRawDialog(QtWidgets.QDialog):
+
+        def __init__(self, values):
+            QtWidgets.QDialog.__init__(self)
+
+            self.setWindowTitle('Set raw bytes')
+
+            self.repeating  = QtWidgets.QSpinBox()
+            self.repeating.setRange(0, 255)
+            self.repeating.setValue(values[0])
+            
+            self.tilenum = QtWidgets.QSpinBox()
+            self.tilenum.setRange(0, 255)
+            self.tilenum.setValue(values[1])
+            
+            self.slot = QtWidgets.QSpinBox()
+            self.slot.setRange(0, 3)
+            self.slot.setValue(values[2] & 3)
+            
+            self.item = QtWidgets.QSpinBox()
+            self.item.setRange(0, 63)
+            self.item.setValue((values[2] >> 2) & 63)
+
+            self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+            self.buttons.accepted.connect(self.accept)
+            self.buttons.rejected.connect(self.reject)
+
+            self.layout = QtWidgets.QHBoxLayout()
+            self.vlayout = QtWidgets.QVBoxLayout()
+            self.layout.addWidget(QtWidgets.QLabel('Repeating:'))
+            self.layout.addWidget(self.repeating)
+            self.layout.addWidget(QtWidgets.QLabel('Tilenum:'))
+            self.layout.addWidget(self.tilenum)
+            self.layout.addWidget(QtWidgets.QLabel('Slot:'))
+            self.layout.addWidget(self.slot)
+            self.layout.addWidget(QtWidgets.QLabel('Item:'))
+            self.layout.addWidget(self.item)
+            self.vlayout.addLayout(self.layout)
+            self.vlayout.addWidget(self.buttons)
+            self.setLayout(self.vlayout)
 
 
     def paintEvent(self, event):
@@ -4816,7 +4883,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.randTilesEditor.text.highligtCurrentLine()
         self.randTilesEditor.text.highlighter.setHighlighterColors(self.isDarkMode)
         text = self.randTilesEditor.text.toPlainText()
-        self.randTilesEditor.text.setPlainText(text)
+        if len(text) > 0:
+            self.randTilesEditor.text.setPlainText(text)
 
 
     def closeEvent(self, event):
