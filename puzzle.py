@@ -5640,13 +5640,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 x = 0
 
         index = self.objectList.currentIndex()
-
         self.setuptile()
+        self.objectList.clearCurrentIndex()
         SetupObjectModel(self.objmodel, Tileset.objects, Tileset.tiles)
-
-        self.objectList.setCurrentIndex(index)
+        self.objectList.setCurrentIndex(self.objmodel.index(index.row(), index.column()))
         self.tileWidget.setObject(index)
-
         self.objectList.update()
         self.tileWidget.update()
 
@@ -5931,10 +5929,14 @@ class MainWindow(QtWidgets.QMainWindow):
                     a = struct.pack('>B', object.upperslope[0])
 
                     for row in range(0, object.upperslope[1]):
-                        for tile in object.tiles[row]:
-                            a += struct.pack('>BBB', tile[0], tile[1], tile[2])
-                        a += b'\xfe'
-
+                        try:
+                            for tile in object.tiles[row]:
+                                a += struct.pack('>BBB', tile[0], tile[1], tile[2])
+                            a += b'\xfe'
+                        except:
+                            print(row)
+                            print(len(object.tiles))
+                            continue
                     if object.height > 1 and object.lowerslope[1]:
                         a += struct.pack('>B', object.lowerslope[0])
 
