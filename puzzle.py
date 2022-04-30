@@ -5449,6 +5449,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 Tileset.randTilesBin = arc[key]
             else:
                 Tileset.unknownFiles[key] = arc[key]
+                print(f"Unknown File: {key}")
 
         if (Image is None) or (behaviourdata is None) or (objstrings is None) or (metadata is None):
             QtWidgets.QMessageBox.warning(None, 'Error',  'Error - the necessary files were not found.\n\nNot a valid tileset, sadly.')
@@ -5745,8 +5746,9 @@ class MainWindow(QtWidgets.QMainWindow):
             if Tileset.randTilesBin:
                 arcFiles['BG_new/RandTiles.bin'] = Tileset.randTilesBin
 
-
-        arcFiles.update(Tileset.unknownFiles)
+        for key, file in Tileset.unknownFiles.items():
+            arcFiles[key.split("/")[0]] = None
+            arcFiles[key] = file
 
         arc = archive.U8()
         for name in sorted(arcFiles):
