@@ -203,7 +203,7 @@ class QCodeEditor(QPlainTextEdit):
                 painter.setFont(self.font)
 
                 # Draw the line number right justified at the position of the line.
-                paint_rect = QRect(0, block_top, self.width(), self.editor.fontMetrics().height())
+                paint_rect = QRect(0, int(block_top), self.width(), self.editor.fontMetrics().height())
                 painter.drawText(paint_rect, Qt.AlignRight, str(blockNumber+1))
 
                 block = block.next()
