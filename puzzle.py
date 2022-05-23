@@ -5458,10 +5458,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # Stolen from Reggie! Loads the Image Data.
         if HaveNSMBLib:
             tiledata = nsmblib.decompress11LZS(Image)
-            argbdata = nsmblib.decodeTileset(tiledata)
-            dest = QtGui.QImage(argbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32)
-            if hasattr(nsmblib, 'decodeTilesetNoAlpha'):
-                rgbdata = nsmblib.decodeTilesetNoAlpha(tiledata)
+            if hasattr(nsmblib, 'decodeTilesetNoPremultiplication'):
+                argbdata = nsmblib.decodeTilesetNoPremultiplication(tiledata)
+                dest = QtGui.QImage(argbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32)
+            else:
+                dest = RGB4A3Decode(tiledata)
+
+            if hasattr(nsmblib, 'decodeTilesetNoPremultiplicationNoAlpha'):
+                rgbdata = nsmblib.decodeTilesetNoPremultiplicationNoAlpha(tiledata)
                 noalphadest = QtGui.QImage(rgbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32)
             else:
                 noalphadest = RGB4A3Decode(tiledata, False)
