@@ -4131,6 +4131,9 @@ class tileWidget(QtWidgets.QWidget):
 
         TileMenu.exec_(event.globalPos())
 
+    def mouseMoveEvent(self, event):
+        if app.mouseButtons() == QtCore.Qt.LeftButton:
+            self.mousePressEvent(event)
 
     def mousePressEvent(self, event):
         global Tileset
@@ -6742,8 +6745,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(frame)
 
 
-    def updateInfo(self, x, y):
+    def updateInfo(self, x, y, noRecursion = False, realIndex = None):
         index = [self.tileDisplay.indexAt(QtCore.QPoint(x, y))]
+        
+        if not noRecursion:
+            if app.mouseButtons() == QtCore.Qt.LeftButton:
+                self.paintFormat(index[0])
+        else:
+            index[0] = realIndex
+        
+        if self.tabWidget.currentIndex() != 1:
+            self.tileDisplay.setCurrentIndex(index[0])
+        
         curTile = Tileset.tiles[index[0].row()]
         info = self.infoDisplay
         palette = self.paletteWidget
@@ -6939,7 +6952,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
 
     def paintFormat(self, index):
-        if self.tabWidget.currentIndex() == 1:
+        if self.tabWidget.currentIndex() != 0:
             return
 
         curTile = Tileset.tiles[index.row()]
@@ -6988,7 +7001,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             curTile.byte7 = palette.parameters.currentIndex()
 
-        self.updateInfo(0, 0)
+        self.updateInfo(0, 0, noRecursion = True, realIndex = index)
         self.tileDisplay.update()
 
 
