@@ -5078,7 +5078,7 @@ class MainWindow(QtWidgets.QMainWindow):
             downScaledFramesheet = framesheet.scaledToWidth(24)
             downScaledImage = downScaledFramesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32)
 
-            image = QtGui.QImage(32, downScaledFramesheet.height() / 24 * 32, QtGui.QImage.Format_ARGB32)
+            image = QtGui.QImage(32, downScaledFramesheet.height() // 24 * 32, QtGui.QImage.Format_ARGB32)
             image.fill(Qt.transparent)
 
             i = 0
@@ -5096,7 +5096,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 while y < 4:
                     x = 0
                     while x < 24:
-                        color = image.pixel(x + 4, i * 32 + 5)
+                        color = image.pixel(x + 4, i * 32 + 4)
                         image.setPixel(x + 4, i * 32 + y, color)
                         x += 1
                     y += 1
@@ -5114,7 +5114,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 while x < 4:
                     y = 0
                     while y < 24:
-                        color = image.pixel(5, i * 32 + y + 4)
+                        color = image.pixel(4, i * 32 + y + 4)
                         image.setPixel(x, i * 32 + y + 4, color)
                         y += 1
                     x += 1
