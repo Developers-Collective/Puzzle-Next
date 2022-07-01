@@ -6750,7 +6750,8 @@ class MainWindow(QtWidgets.QMainWindow):
         
         if not noRecursion:
             if app.mouseButtons() == QtCore.Qt.LeftButton:
-                self.paintFormat(index[0])
+                if not index[0].column() == -1:
+                    self.paintFormat(index[0])
         else:
             index[0] = realIndex
         
