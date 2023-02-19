@@ -1,3 +1,23 @@
+#!/usr/bin/python
+# -*- coding: latin-1 -*-
+
+# Reggie! - New Super Mario Bros. Wii Level Editor
+# Copyright (C) 2009-2010 Treeki, Tempus
+
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import json
 import os, os.path
@@ -11,22 +31,22 @@ import PyInstaller.__main__
 ############################### Constants ##############################
 ########################################################################
 
-# Everything highly specific to Puzzle is in this section, to make it
+# Everything highly specific to Reggie is in this section, to make it
 # simpler to copypaste this script across all of the NSMBW-related
 # projects that use the same technologies (Reggie, Puzzle, BRFNTify,
 # etc)
 
-PROJECT_NAME = 'PuzzleNext'
-FULL_PROJECT_NAME = 'Puzzle Next - Tileset Editor'
-PROJECT_VERSION = '1.0'
+PROJECT_NAME = 'Puzzle Next'
+FULL_PROJECT_NAME = 'Puzzle Next Tileset Editor'
+PROJECT_VERSION = '1.0.0'
 
-WIN_ICON = None
-MAC_ICON = None
-MAC_BUNDLE_IDENTIFIER = 'ca.chronometry.puzzleNext'
+WIN_ICON = os.path.join('Icons', 'icon.ico')
+MAC_ICON = os.path.join('Icons', 'icon.icns')
+MAC_BUNDLE_IDENTIFIER = 'me.nin0.puzzle'
 
 SCRIPT_FILE = 'puzzle.py'
 DATA_FOLDERS = ['Icons', 'MenuIcons', 'Other', 'QCodeEditor']
-DATA_FILES = ['readme.txt', 'dark.qss', 'light.qss', 'LICENSE', 'LICENSE-dark.qss', 'LICENSE-QCodeEditor']
+DATA_FILES = ['readme.md', 'LICENSE', 'LICENSE-dark.qss', 'LICENSE-QCodeEditor', 'dark.qss', 'light.qss']
 
 # macOS only
 AUTO_APP_BUNDLE_NAME = SCRIPT_FILE.split('.')[0] + '.app'
@@ -37,7 +57,7 @@ FINAL_APP_BUNDLE_NAME = FULL_PROJECT_NAME + '.app'
 ################################# Intro ################################
 ########################################################################
 
-DIR = 'distrib'
+DIR = os.path.join('build', 'puzzle_next_v%s_win32' % PROJECT_VERSION)
 WORKPATH = 'build_temp'
 SPECFILE = SCRIPT_FILE[:-3] + '.spec'
 
@@ -120,10 +140,9 @@ print('>> Populating excludes and includes...')
 print('>>')
 
 # Excludes
-excludes = ['calendar', 'datetime', 'difflib', 'doctest', 'hashlib', 'inspect',
-    'locale', 'multiprocessing', 'optpath', 'os2emxpath', 'pdb',
-    'select', 'socket', 'ssl', 'unittest',
-    'FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter']
+excludes = ['doctest', 'pdb', 'unittest', 'difflib',
+            'os2emxpath', 'optpath', 'multiprocessing', 'ssl',
+            'PyQt5.QtWebKit', 'PyQt5.QtNetwork']
 
 if sys.platform == 'nt':
     excludes.append('posixpath')
@@ -206,16 +225,16 @@ print('>> Will use the following binaries excludes list: ' + ', '.join(excludes_
 args = [
     '--windowed',
     '--onefile',
+    '--upx-dir=/path/to/upx',
+    '--upx-exclude=vcruntime140.dll',
     '--distpath=' + DIR,
     '--workpath=' + WORKPATH,
 ]
 
 if sys.platform == 'win32':
-    if WIN_ICON:
-        args.append('--icon=' + os.path.abspath(WIN_ICON))
+    args.append('--icon=' + os.path.abspath(WIN_ICON))
 elif sys.platform == 'darwin':
-    if MAC_ICON:
-        args.append('--icon=' + os.path.abspath(MAC_ICON))
+    args.append('--icon=' + os.path.abspath(MAC_ICON))
     args.append('--osx-bundle-identifier=' + MAC_BUNDLE_IDENTIFIER)
 
 for e in excludes:
@@ -251,6 +270,7 @@ with open(SPECFILE, 'r', encoding='utf-8') as f:
 
 # Iterate over its lines, and potentially add new ones
 new_lines = []
+insert_info_plist = False
 for line in lines:
     if 'PYZ(' in line and excludes_binaries:
         new_lines.append('EXCLUDES = ' + repr(excludes_binaries))
@@ -266,8 +286,15 @@ for line in lines:
 
     new_lines.append(line)
 
+    if insert_info_plist:
+        new_lines.append('    info_plist=' + json.dumps(info_plist) + ',')
+        insert_info_plist = False
+
     if sys.platform == 'darwin' and 'BUNDLE(' in line:
-        new_lines.append('info_plist=' + json.dumps(info_plist) + ',')
+        # We cannot insert the info_plist keyword argument now, as the next
+        # argument is not a keyword argument. As such, we set a flag to add it
+        # after the next line.
+        insert_info_plist = True
 
 # Save new specfile
 with open(SPECFILE, 'w', encoding='utf-8') as f:
@@ -284,6 +311,8 @@ with open(SPECFILE, 'w', encoding='utf-8') as f:
 
 args = [
     '--windowed',
+    '--upx-dir=/path/to/upx',
+    '--upx-exclude=vcruntime140.dll',
     '--distpath=' + DIR,
     '--workpath=' + WORKPATH,
     SPECFILE,

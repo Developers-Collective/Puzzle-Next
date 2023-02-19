@@ -107,7 +107,7 @@ jobs:
         .././python3 -m pip install .
     - name: Build
       shell: bash
-      run: $PYTHON_CMD -OO build_release.py
+      run: $PYTHON_CMD -OO build_puzzle.py
     - name: Tar (macOS/Linux)
       if: ${{ matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest' }}
       run: |
