@@ -850,7 +850,7 @@ class InfoBox(QtWidgets.QWidget):
         self.collisionOverlay = QtWidgets.QCheckBox('Overlay Collision')
         self.collisionOverlay.clicked.connect(updateAllTiles)
 
-        self.toggleAlpha = QtWidgets.QCheckBox('Toggle Background')
+        self.toggleAlpha = QtWidgets.QCheckBox('Toggle Alpha')
         self.toggleAlpha.clicked.connect(window.toggleAlpha)
 
         class QScreenshot(QtWidgets.QSplashScreen):
@@ -957,6 +957,7 @@ class framesheetList(QtWidgets.QListView):
         self.setBackgroundRole(QtGui.QPalette.BrightText)
         self.setWrapping(False)
         self.setMinimumHeight(512)
+        self.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
 
     def setHeight(self):
         height = getFramesheetGridSize()
@@ -1112,7 +1113,7 @@ class framesheetOverlord(QtWidgets.QWidget):
         path = QtWidgets.QFileDialog.getOpenFileName(self, "Open framesheet", '', "Image Files (*.png)")[0]
         if not path: return (None, None)
 
-        framesheet = QtGui.QPixmap()
+        framesheet = QtGui.QImage()
         if not framesheet.load(path):
             QtWidgets.QMessageBox.warning(self, "Open framesheet",
                     "The framesheet file could not be loaded.",
@@ -1155,7 +1156,7 @@ class framesheetOverlord(QtWidgets.QWidget):
 
             name = newName
 
-        image = framesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32)
+        image = framesheet.convertToFormat(QtGui.QImage.Format_ARGB32)
         data = RGB4A3FramesheetEncode(image)
         Tileset.animdata["BG_tex/{0}.bin".format(name)] = data
 
@@ -1165,7 +1166,7 @@ class framesheetOverlord(QtWidgets.QWidget):
             frames.append(frame)
         window.frames["BG_tex/{0}.bin".format(name)] = frames
 
-        window.framesheetmodel.appendRow(QtGui.QStandardItem(QtGui.QIcon(framesheet), '{0}'.format(name)))
+        window.framesheetmodel.appendRow(QtGui.QStandardItem(QtGui.QIcon(QtGui.QPixmap.fromImage(framesheet)), '{0}'.format(name)))
         index = window.framesheetList.currentIndex()
         window.framesheetList.setCurrentIndex(index)
         #self.setObject(index)
@@ -1218,7 +1219,7 @@ class framesheetOverlord(QtWidgets.QWidget):
                     QtWidgets.QMessageBox.Cancel)
             return
 
-        image = framesheet.toImage().convertToFormat(QtGui.QImage.Format_ARGB32);
+        image = framesheet.convertToFormat(QtGui.QImage.Format_ARGB32);
         data = RGB4A3FramesheetEncode(image)
         Tileset.animdata["BG_tex/{0}.bin".format(name)] = data
 
@@ -1228,7 +1229,7 @@ class framesheetOverlord(QtWidgets.QWidget):
             frames.append(frame)
         window.frames["BG_tex/{0}.bin".format(name)] = frames
 
-        window.framesheetmodel.itemFromIndex(index).setIcon(QtGui.QIcon(framesheet))
+        window.framesheetmodel.itemFromIndex(index).setIcon(QtGui.QIcon(QtGui.QPixmap.fromImage(framesheet)))
 
         window.framesheetList.update()
         self.update()
@@ -1456,14 +1457,18 @@ class frameEditorOverlord(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "Open frame", "The frame has incorrect dimensions.\nNeeded sizes: 32x32 pixel.", QtWidgets.QMessageBox.Cancel)
             return
 
+
         i = self.table.currentRow()
-        window.frames["BG_tex/{0}.bin".format(self.texname)][i] = frame
+        window.frames["BG_tex/{0}.bin".format(self.texname)][i] = QtGui.QPixmap.fromImage(frame)
         item = window.framesheetmodel.itemFromIndex(window.framesheetList.currentIndex())
         icon = item.icon()
         pixmap = icon.pixmap(icon.availableSizes()[0])
 
         painter = QtGui.QPainter(pixmap)
-        painter.drawPixmap(0, 32*i, frame)
+        painter.setCompositionMode(QtGui.QPainter.CompositionMode_Clear)
+        painter.fillRect(0, 32*i, 32, 32, Qt.transparent)
+        painter.setCompositionMode(QtGui.QPainter.CompositionMode_Source)
+        painter.drawImage(0, 32*i, frame)
         painter.end()
         del painter
 
@@ -1472,7 +1477,7 @@ class frameEditorOverlord(QtWidgets.QWidget):
         Tileset.animdata["BG_tex/{0}.bin".format(self.texname)] = data
         item.setIcon(QtGui.QIcon(pixmap))
 
-        self.table.cellWidget(i, 0).setPixmap(frame)
+        self.table.cellWidget(i, 0).setPixmap(QtGui.QPixmap.fromImage(frame))
 
         window.framesheetList.update()
         self.update()
@@ -2607,7 +2612,7 @@ def SetupObjectModel(self, objects, tiles):
         for i in range(len(object.tiles)):
             for tile in object.tiles[i]:
                 if Tileset.slot == (tile[2] & 3):
-                    painter.drawPixmap(Xoffset, Yoffset, tiles[tile[1]].image)
+                    painter.drawImage(Xoffset, Yoffset, tiles[tile[1]].image)
                 Xoffset += 24
             Xoffset = 0
             Yoffset += 24
@@ -3613,7 +3618,7 @@ class tileOverlord(QtWidgets.QWidget):
         pix.fill(Qt.transparent)
 
         painter = QtGui.QPainter(pix)
-        painter.drawPixmap(0, 0, Tileset.tiles[0].image)
+        painter.drawImage(0, 0, Tileset.tiles[0].image)
         painter.end()
         del painter
 
@@ -4083,9 +4088,9 @@ class tileWidget(QtWidgets.QWidget):
                 if Tileset.slot == (tile[2] & 3):
                     self.tiles[-1].append(Tileset.tiles[tile[1]].image)
                 else:
-                    pix = QtGui.QPixmap(24,24)
-                    pix.fill(QtGui.QColor(0,0,0,0))
-                    self.tiles[-1].append(pix)
+                    img = QtGui.QImage(24, 24, QtGui.QImage.Format.Format_ARGB32)
+                    img.fill(QtCore.Qt.transparent)
+                    self.tiles[-1].append(img)
                 x += 1
             y += 1
             x = 0
@@ -4171,11 +4176,11 @@ class tileWidget(QtWidgets.QWidget):
                     pass
 
             else:
-                pix = QtGui.QPixmap(24,24)
-                pix.fill(QtGui.QColor(0,0,0,0))
+                img = QtGui.QImage(24, 24, QtGui.QImage.Format.Format_ARGB32)
+                img.fill(QtCore.Qt.transparent)
 
                 try:
-                    self.tiles[y][x] = pix
+                    self.tiles[y][x] = img
                     Tileset.objects[self.object].tiles[y][x] = (Tileset.objects[self.object].tiles[y][x][0], 0, 0)
                 except IndexError:
                     pass
@@ -4240,7 +4245,7 @@ class tileWidget(QtWidgets.QWidget):
 
         for y, row in enumerate(self.tiles):
             for x, tile in enumerate(row):
-                painter.drawPixmap(x*24, y*24, tile)
+                painter.drawImage(x*24, y*24, tile)
 
         painter.end()
 
@@ -4451,7 +4456,7 @@ class tileWidget(QtWidgets.QWidget):
 
         for y, row in enumerate(self.tiles):
             for x, pix in enumerate(row):
-                painter.drawPixmap(upperLeftX + (x * 24), upperLeftY + (y * 24), pix)
+                painter.drawImage(upperLeftX + (x * 24), upperLeftY + (y * 24), pix)
 
         if object.upperslope[0] & 0x80:
             pen = QtGui.QPen()
@@ -4669,54 +4674,386 @@ def RGB4A3Decode(tex, useAlpha=True):
     return QtGui.QImage(struct.pack('<262144I', *dest), 1024, 256, QtGui.QImage.Format_ARGB32)
 
 
+def color_transparent_pixels_around_edges_24_24(data: bytearray) -> None:
+    """
+    THIS FUNCTION IS AUTO-GENERATED SOURCE CODE!
+    See make_color_transparent_pixels_around_edges.py.
+    Find fully-transparent pixels that border non-fully-transparent
+    pixels, and set their RGB channels to the average of those of their
+    neighboring non-fully-transparent pixels. This solves the
+    longstanding "black outlines around tile edges" bug.
+    "data" should be BGRA8 bytes for an image of size 24x24.
+    """
+    if len(data) != 0x900:
+        raise ValueError(f'expected 0x900 bytes, got {len(data):#x}')
+
+    # Redefine some globals as locals for faster lookups
+    sum_loc, len_loc, range_loc = sum, len, range
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Top-left corner
+
+    if not data[0x3]:
+        neighbors = []
+
+        # (x + 1, y)
+        if data[0x7]:
+            neighbors.append(data[0x4 : 0x7])
+
+        # (x + 1, y + 1)
+        if data[0x67]:
+            neighbors.append(data[0x64 : 0x67])
+
+        # (x, y + 1)
+        if data[0x63]:
+            neighbors.append(data[0x60 : 0x63])
+
+        if neighbors:
+            ln = len_loc(neighbors)
+            data[0x0] = sum_loc(n[0] for n in neighbors) // ln
+            data[0x1] = sum_loc(n[1] for n in neighbors) // ln
+            data[0x2] = sum_loc(n[2] for n in neighbors) // ln
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Top-right corner
+
+    if not data[0x5f]:
+        neighbors = []
+
+        # (x, y + 1)
+        if data[0xbf]:
+            neighbors.append(data[0xbc : 0xbf])
+
+        # (x - 1, y + 1)
+        if data[0xbb]:
+            neighbors.append(data[0xb8 : 0xbb])
+
+        # (x - 1, y)
+        if data[0x5b]:
+            neighbors.append(data[0x58 : 0x5b])
+
+        if neighbors:
+            ln = len_loc(neighbors)
+            data[0x5c] = sum_loc(n[0] for n in neighbors) // ln
+            data[0x5d] = sum_loc(n[1] for n in neighbors) // ln
+            data[0x5e] = sum_loc(n[2] for n in neighbors) // ln
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Bottom-left corner
+
+    if not data[0x8a3]:
+        neighbors = []
+
+        # (x, y - 1)
+        if data[0x843]:
+            neighbors.append(data[0x840 : 0x843])
+
+        # (x + 1, y - 1)
+        if data[0x847]:
+            neighbors.append(data[0x844 : 0x847])
+
+        # (x + 1, y)
+        if data[0x8a7]:
+            neighbors.append(data[0x8a4 : 0x8a7])
+
+        if neighbors:
+            ln = len_loc(neighbors)
+            data[0x8a0] = sum_loc(n[0] for n in neighbors) // ln
+            data[0x8a1] = sum_loc(n[1] for n in neighbors) // ln
+            data[0x8a2] = sum_loc(n[2] for n in neighbors) // ln
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Bottom-right corner
+
+    if not data[0x8ff]:
+        neighbors = []
+
+        # (x - 1, y)
+        if data[0x8fb]:
+            neighbors.append(data[0x8f8 : 0x8fb])
+
+        # (x - 1, y - 1)
+        if data[0x89b]:
+            neighbors.append(data[0x898 : 0x89b])
+
+        # (x, y - 1)
+        if data[0x89f]:
+            neighbors.append(data[0x89c : 0x89f])
+
+        if neighbors:
+            ln = len_loc(neighbors)
+            data[0x8fc] = sum_loc(n[0] for n in neighbors) // ln
+            data[0x8fd] = sum_loc(n[1] for n in neighbors) // ln
+            data[0x8fe] = sum_loc(n[2] for n in neighbors) // ln
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Top edge, except corners
+
+    for offset in range_loc(0x7, 0x5f, 0x4):
+        if not data[offset]:
+            neighbors = []
+
+            # (x + 1, y)
+            offset += 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x + 1, y + 1)
+            offset += 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x, y + 1)
+            offset -= 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x - 1, y + 1)
+            offset -= 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x - 1, y)
+            offset -= 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            if neighbors:
+                ln = len_loc(neighbors)
+                data[offset + 1] = sum_loc(n[0] for n in neighbors) // ln
+                data[offset + 2] = sum_loc(n[1] for n in neighbors) // ln
+                data[offset + 3] = sum_loc(n[2] for n in neighbors) // ln
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Bottom edge, except corners
+
+    for offset in range_loc(0x8a7, 0x8ff, 0x4):
+        if not data[offset]:
+            neighbors = []
+
+            # (x - 1, y)
+            offset -= 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x - 1, y - 1)
+            offset -= 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x, y - 1)
+            offset += 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x + 1, y - 1)
+            offset += 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x + 1, y)
+            offset += 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            if neighbors:
+                ln = len_loc(neighbors)
+                data[offset - 7] = sum_loc(n[0] for n in neighbors) // ln
+                data[offset - 6] = sum_loc(n[1] for n in neighbors) // ln
+                data[offset - 5] = sum_loc(n[2] for n in neighbors) // ln
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Left edge, except corners
+
+    for offset in range_loc(0x63, 0x8a3, 0x60):
+        if not data[offset]:
+            neighbors = []
+
+            # (x, y - 1)
+            offset -= 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x + 1, y - 1)
+            offset += 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x + 1, y)
+            offset += 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x + 1, y + 1)
+            offset += 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x, y + 1)
+            offset -= 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            if neighbors:
+                offset -= 0x63
+                ln = len_loc(neighbors)
+                data[offset] = sum_loc(n[0] for n in neighbors) // ln
+                data[offset + 1] = sum_loc(n[1] for n in neighbors) // ln
+                data[offset + 2] = sum_loc(n[2] for n in neighbors) // ln
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Right edge, except corners
+
+    for offset in range_loc(0xbf, 0x8ff, 0x60):
+        if not data[offset]:
+            neighbors = []
+
+            # (x, y + 1)
+            offset += 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x - 1, y + 1)
+            offset -= 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x - 1, y)
+            offset -= 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x - 1, y - 1)
+            offset -= 0x60
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            # (x, y - 1)
+            offset += 0x4
+            if data[offset]:
+                neighbors.append(data[offset - 3 : offset])
+
+            if neighbors:
+                offset += 0x5d
+                ln = len_loc(neighbors)
+                data[offset] = sum_loc(n[0] for n in neighbors) // ln
+                data[offset + 1] = sum_loc(n[1] for n in neighbors) // ln
+                data[offset + 2] = sum_loc(n[2] for n in neighbors) // ln
+
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Main body
+
+    for row_start_offs in range_loc(0x67, 0x8a7, 0x60):
+        for offset in range_loc(row_start_offs, row_start_offs + 0x58, 0x4):
+            if not data[offset]:  # (fully transparent pixel)
+                neighbors = []
+
+                # (x, y - 1)
+                offset -= 0x60
+                if data[offset]:
+                    neighbors.append(data[offset - 3 : offset])
+
+                # (x + 1, y - 1)
+                offset += 0x4
+                if data[offset]:
+                    neighbors.append(data[offset - 3 : offset])
+
+                # (x + 1, y)
+                offset += 0x60
+                if data[offset]:
+                    neighbors.append(data[offset - 3 : offset])
+
+                # (x + 1, y + 1)
+                offset += 0x60
+                if data[offset]:
+                    neighbors.append(data[offset - 3 : offset])
+
+                # (x, y + 1)
+                offset -= 0x4
+                if data[offset]:
+                    neighbors.append(data[offset - 3 : offset])
+
+                # (x - 1, y + 1)
+                offset -= 0x4
+                if data[offset]:
+                    neighbors.append(data[offset - 3 : offset])
+
+                # (x - 1, y)
+                offset -= 0x60
+                if data[offset]:
+                    neighbors.append(data[offset - 3 : offset])
+
+                # (x - 1, y - 1)
+                offset -= 0x60
+                if data[offset]:
+                    neighbors.append(data[offset - 3 : offset])
+
+                if neighbors:
+                    offset += 0x61
+                    ln = len_loc(neighbors)
+                    data[offset] = sum_loc(n[0] for n in neighbors) // ln
+                    data[offset + 1] = sum_loc(n[1] for n in neighbors) // ln
+                    data[offset + 2] = sum_loc(n[2] for n in neighbors) // ln
+
+
 def RGB4A3Encode(tex):
+    assert len(tex) == (1024 * 256 * 4)
+
     shorts = []
     colorCache = {}
+    for ytile in range(0, 256, 4):
+        for xtile in range(0, 1024, 4):
+            for ypixel in range(ytile, ytile + 4):
+                for xpixel in range(xtile, xtile + 4):
 
-    for yTile in range(0, 256, 4):
-        for xTile in range(0, 1024, 4):
-            for y in range(yTile, yTile + 4):
-                for x in range(xTile, xTile + 4):
-                    pixel = tex.pixel(x, y)
+                    pixel = tex[ypixel * 4096 + xpixel * 4 : ypixel * 4096 + (xpixel + 1) * 4]
 
                     if pixel in colorCache:
                         rgba = colorCache[pixel]
 
                     else:
-                        a = pixel >> 24
-                        r = (pixel >> 16) & 0xFF
-                        g = (pixel >> 8) & 0xFF
-                        b = pixel & 0xFF
+                        b, g, r, a = pixel
 
                         # See encodingTests.py for verification that these
                         # channel conversion formulas are 100% correct
 
-                        # It'd be nice if we could do
+                        # Note: we can't do
                         # if a < 19:
                         #     rgba = 0
-                        # for speed, but that defeats the purpose of the
-                        # "Toggle Alpha" setting.
+                        # for speed, because that causes an issue with
+                        # texture filtering that results in graphics
+                        # having faint black borders in-game
 
-                        if a < 238: # RGB4A3
-                            alpha = ((a + 18) << 1) // 73
-                            red = (r + 8) // 17
-                            green = (g + 8) // 17
-                            blue = (b + 8) // 17
+                        if a < 238:  # RGB4A3
+                            a = ((a + 18) << 1) // 73
+                            r = (r + 8) // 17
+                            g = (g + 8) // 17
+                            b = (b + 8) // 17
 
                             # 0aaarrrrggggbbbb
-                            rgba = blue | (green << 4) | (red << 8) | (alpha << 12)
+                            rgba = (a << 12) | (r << 8) | (g << 4) | b
 
-                        else: # RGB555
-                            red = ((r + 4) << 2) // 33
-                            green = ((g + 4) << 2) // 33
-                            blue = ((b + 4) << 2) // 33
+                        else:  # RGB555
+                            r = ((r + 4) << 2) // 33
+                            g = ((g + 4) << 2) // 33
+                            b = ((b + 4) << 2) // 33
 
                             # 1rrrrrgggggbbbbb
-                            rgba = blue | (green << 5) | (red << 10) | (0x8000)
+                            rgba = 0x8000 | (r << 10) | (g << 5) | b
 
                         colorCache[pixel] = rgba
 
                     shorts.append(rgba)
+
+                    if xtile % 32 == 0 or xtile % 32 == 28:
+                        shorts.append(rgba)
+                        shorts.append(rgba)
+                        shorts.append(rgba)
+                        break
+                if ytile % 32 == 0 or ytile % 32 == 28:
+                    shorts.extend(shorts[-4:])
+                    shorts.extend(shorts[-8:])
+                    break
 
     return struct.pack('>262144H', *shorts)
 
@@ -5353,10 +5690,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.alpha == True:
             for tile in Tileset.tiles:
-                self.model.addPieces(tile.image)
+                self.model.addPieces(QtGui.QPixmap.fromImage(tile.image))
         else:
             for tile in Tileset.tiles:
-                self.model.addPieces(tile.noalpha)
+                self.model.addPieces(QtGui.QPixmap.fromImage(tile.noalpha))
 
 
     def newTileset(self):
@@ -5378,11 +5715,11 @@ class MainWindow(QtWidgets.QMainWindow):
         RandTiles.clear()
         RandTiles = RandTilesClass()
 
-        EmptyPix = QtGui.QPixmap(24, 24)
-        EmptyPix.fill(Qt.black)
+        EmptyImg = QtGui.QImage(24, 24, QtGui.QImage.Format.Format_ARGB32)
+        EmptyImg.fill(Qt.black)
 
         for i in range(256):
-            Tileset.addTile(EmptyPix, EmptyPix)
+            Tileset.addTile(EmptyImg, EmptyImg)
 
         self.tileWidget.tilesetType.setText('Pa0')
 
@@ -5463,23 +5800,20 @@ class MainWindow(QtWidgets.QMainWindow):
             tiledata = nsmblib.decompress11LZS(Image)
             if hasattr(nsmblib, 'decodeTilesetNoPremultiplication'):
                 argbdata = nsmblib.decodeTilesetNoPremultiplication(tiledata)
-                dest = QtGui.QImage(argbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32)
+                tileImage = QtGui.QImage(argbdata, 1024, 256, QtGui.QImage.Format_ARGB32)
             else:
-                dest = RGB4A3Decode(tiledata)
+                tileImage = RGB4A3Decode(tiledata)
 
             if hasattr(nsmblib, 'decodeTilesetNoPremultiplicationNoAlpha'):
                 rgbdata = nsmblib.decodeTilesetNoPremultiplicationNoAlpha(tiledata)
-                noalphadest = QtGui.QImage(rgbdata, 1024, 256, 4096, QtGui.QImage.Format_ARGB32)
+                noalphaImage = QtGui.QImage(rgbdata, 1024, 256, QtGui.QImage.Format_ARGB32)
             else:
-                noalphadest = RGB4A3Decode(tiledata, False)
+                noalphaImage = RGB4A3Decode(tiledata, False)
         else:
             lz = lz77.LZS11()
             decomp = lz.Decompress11LZS(Image)
-            dest = RGB4A3Decode(decomp)
-            noalphadest = RGB4A3Decode(decomp, False)
-
-        tileImage = QtGui.QPixmap.fromImage(dest)
-        noalpha = QtGui.QPixmap.fromImage(noalphadest)
+            tileImage = RGB4A3Decode(decomp)
+            noalphaImage = RGB4A3Decode(decomp, False)
 
         # Loads Tile Behaviours
 
@@ -5492,7 +5826,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Xoffset = 4
         Yoffset = 4
         for i in range(256):
-            Tileset.addTile(tileImage.copy(Xoffset,Yoffset,24,24), noalpha.copy(Xoffset,Yoffset,24,24), behaviours[i])
+            Tileset.addTile(tileImage.copy(Xoffset,Yoffset,24,24), noalphaImage.copy(Xoffset,Yoffset,24,24), behaviours[i])
             Xoffset += 32
             if Xoffset >= 1024:
                 Xoffset = 4
@@ -5615,37 +5949,102 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if not path: return
 
-        tileImage = QtGui.QPixmap()
-        if not tileImage.load(path):
+        tileImage = QtGui.QImage(path)
+        if tileImage.isNull():
             QtWidgets.QMessageBox.warning(self, "Open Image",
                     "The image file could not be loaded.",
                     QtWidgets.QMessageBox.Cancel)
             return
 
-
         if tileImage.width() != 384 or tileImage.height() != 384:
             QtWidgets.QMessageBox.warning(self, "Open Image",
-                    "The image has incorrect dimensions. "
+                    "The image was not the proper dimensions."
                     "Please resize the image to 384x384 pixels.",
                     QtWidgets.QMessageBox.Cancel)
             return
 
-        noalphaImage = QtGui.QPixmap(384, 384)
-        noalphaImage.fill(Qt.black)
-        p = QtGui.QPainter(noalphaImage)
-        p.drawPixmap(0, 0, tileImage)
-        p.end()
-        del p
+        if tileImage.format() != QtGui.QImage.Format.Format_ARGB32:
+            tileImage.convertTo(QtGui.QImage.Format.Format_ARGB32)
+
+        if not hasattr(self, 'extendEdges'):
+            self.extendEdges = True
+            self.skipExtendEdgesDialog = False
+            isFirstTime = True
+        else:
+            isFirstTime = False
+
+        tileImagesRaw = []
+        tileImagesFixed = []
+        tileImagesRawNoAlpha = []
+        tileImagesFixedNoAlpha = []
 
         x = 0
         y = 0
         for i in range(256):
-            Tileset.tiles[i].image = tileImage.copy(x*24,y*24,24,24)
-            Tileset.tiles[i].noalpha = noalphaImage.copy(x*24,y*24,24,24)
+            img = tileImage.copy(x*24,y*24,24,24)
+
+            bgra = bytearray(img.bits().asstring(24 * 24 * 4))
+
+            # Skip this if it's not going to be used for anything
+            if not self.skipExtendEdgesDialog or not self.extendEdges:
+                bgra_bk = bytearray(bgra)
+
+                tileImagesRaw.append(QtGui.QImage(bytes(bgra), 24, 24, QtGui.QImage.Format.Format_ARGB32))
+                for offs in range(3, 24 * 24 * 4, 4):
+                    bgra[offs] = 0xff
+                tileImagesRawNoAlpha.append(QtGui.QImage(bytes(bgra), 24, 24, QtGui.QImage.Format.Format_ARGB32))
+
+                bgra = bgra_bk
+
+            # Ditto
+            if not self.skipExtendEdgesDialog or self.extendEdges:
+                color_transparent_pixels_around_edges_24_24(bgra)
+
+                tileImagesFixed.append(QtGui.QImage(bytes(bgra), 24, 24, QtGui.QImage.Format.Format_ARGB32))
+                for offs in range(3, 24 * 24 * 4, 4):
+                    bgra[offs] = 0xff
+                tileImagesFixedNoAlpha.append(QtGui.QImage(bytes(bgra), 24, 24, QtGui.QImage.Format.Format_ARGB32))
+
             x += 1
-            if (x * 24) >= 384:
+            if x >= 16:
                 y += 1
                 x = 0
+
+        # Show dialog if needed
+        if not self.skipExtendEdgesDialog:
+            fullRaw = QtGui.QImage(384, 384, QtGui.QImage.Format.Format_ARGB32)
+            painterRaw = QtGui.QPainter(fullRaw)
+            fullFixed = QtGui.QImage(384, 384, QtGui.QImage.Format.Format_ARGB32)
+            painterFixed = QtGui.QPainter(fullFixed)
+
+            Xoffset = Yoffset = 0
+            for raw, fixed in zip(tileImagesRawNoAlpha, tileImagesFixedNoAlpha):
+                painterRaw.drawImage(Xoffset, Yoffset, raw)
+                painterFixed.drawImage(Xoffset, Yoffset, fixed)
+                Xoffset += 24
+                if Xoffset >= 384:
+                    Xoffset = 0
+                    Yoffset += 24
+
+            del painterRaw, painterFixed
+
+            dlg = self.extendEdgesDialog(fullRaw, fullFixed, self.extendEdges, isFirstTime)
+
+            if dlg.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+                self.extendEdges = dlg.doFix
+                self.skipExtendEdgesDialog = dlg.rememberCheckbox.isChecked()
+            else:
+                return
+
+        # Apply new tile images
+        if self.extendEdges:
+            for i in range(256):
+                Tileset.tiles[i].image = tileImagesFixed[i]
+                Tileset.tiles[i].noalpha = tileImagesFixedNoAlpha[i]
+        else:
+            for i in range(256):
+                Tileset.tiles[i].image = tileImagesRaw[i]
+                Tileset.tiles[i].noalpha = tileImagesRawNoAlpha[i]
 
         index = self.objectList.currentIndex()
         self.setuptile()
@@ -5657,12 +6056,92 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tileWidget.update()
 
 
+    class extendEdgesDialog(QtWidgets.QDialog):
+        class linkedScrollArea(QtWidgets.QScrollArea):
+            '''A QScrollArea that synchronizes its scrolling with another one (self.other)'''
+            updating = False
+
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.horizontalScrollBar().valueChanged.connect(self.handleHorzScroll)
+                self.verticalScrollBar().valueChanged.connect(self.handleVertScroll)
+
+            def handleHorzScroll(self, value):
+                if self.updating: return
+                self.updating = True
+                self.other.horizontalScrollBar().setValue(value)
+                self.updating = False
+
+            def handleVertScroll(self, value):
+                if self.updating: return
+                self.updating = True
+                self.other.verticalScrollBar().setValue(value)
+                self.updating = False
+
+        def __init__(self, rawImage, fixedImage, defaultFixed, defaultRemember):
+            super().__init__()
+
+            self.setWindowTitle('Choose import options')
+
+            self.textLabel = QtWidgets.QLabel(
+                "When exporting, many image editing tools set the RGB values for transparent pixels to black or other arbitrary colors, since it's irrelevant in most cases."
+                " However, with the Wii's texture filtering, this can result in faint dark outlines around tiles."
+                "\n\nPuzzle can try to automatically correct for this, or you can keep the existing colors in your image."
+                '\n\nYou should choose "Fix colors of transparent pixels" in most cases unless you know what you\'re doing.')
+            self.textLabel.setWordWrap(True)
+
+            SCALE = 5
+
+            self.rawLabel = QtWidgets.QLabel(self)
+            self.rawLabel.setPixmap(QtGui.QPixmap.fromImage(rawImage).scaledToWidth(384 * SCALE))
+            self.fixedLabel = QtWidgets.QLabel(self)
+            self.fixedLabel.setPixmap(QtGui.QPixmap.fromImage(fixedImage).scaledToWidth(384 * SCALE))
+
+            self.rawScrollArea = self.linkedScrollArea(self)
+            self.rawScrollArea.setWidget(self.rawLabel)
+            self.fixedScrollArea = self.linkedScrollArea(self)
+            self.fixedScrollArea.setWidget(self.fixedLabel)
+            self.rawScrollArea.other = self.fixedScrollArea
+            self.fixedScrollArea.other = self.rawScrollArea
+
+            self.rawTitleLabel = QtWidgets.QLabel('<b>Original image without alpha channel:</b>')
+            self.fixedTitleLabel = QtWidgets.QLabel('<b>Fixed image without alpha channel:</b>')
+
+            self.rememberCheckbox = QtWidgets.QCheckBox("Don't ask again for this session")
+            self.rememberCheckbox.setChecked(defaultRemember)
+
+            self.buttons = QtWidgets.QDialogButtonBox()
+            self.buttons.addButton('Preserve colors of transparent pixels', QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
+            self.fixedButton = QtWidgets.QPushButton('Fix colors of transparent pixels', self)
+            self.fixedButton.setDefault(True)
+            self.buttons.addButton(self.fixedButton, QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
+            self.buttons.addButton(QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+            self.buttons.accepted.connect(self.accept)
+            self.buttons.rejected.connect(self.reject)
+            self.buttons.clicked.connect(self.handleClicked)
+
+            self.layout = QtWidgets.QGridLayout()
+            self.layout.addWidget(self.textLabel, 0, 0, 1, 2)
+            self.layout.setRowMinimumHeight(1, 32)
+            self.layout.addWidget(self.rawTitleLabel, 2, 0, 1, 1, Qt.AlignmentFlag.AlignCenter)
+            self.layout.addWidget(self.fixedTitleLabel, 2, 1, 1, 1, Qt.AlignmentFlag.AlignCenter)
+            self.layout.addWidget(self.rawScrollArea, 3, 0)
+            self.layout.addWidget(self.fixedScrollArea, 3, 1)
+            self.layout.setRowMinimumHeight(4, 32)
+            self.layout.addWidget(self.rememberCheckbox, 5, 0, 1, 2, Qt.AlignmentFlag.AlignRight)
+            self.layout.addWidget(self.buttons, 6, 0, 1, 2)
+            self.setLayout(self.layout)
+
+        def handleClicked(self, button):
+            self.doFix = (button is self.fixedButton)
+
+
     def saveImage(self):
 
         fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
         if not fn: return
 
-        tex = QtGui.QPixmap(384, 384)
+        tex = QtGui.QImage(384, 384, QtGui.QImage.Format.Format_ARGB32)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
 
@@ -5670,7 +6149,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Yoffset = 0
 
         for tile in Tileset.tiles:
-            painter.drawPixmap(Xoffset, Yoffset, tile.image)
+            painter.drawImage(Xoffset, Yoffset, tile.image)
             Xoffset += 24
             if Xoffset >= 384:
                 Xoffset = 0
@@ -5765,80 +6244,37 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def PackTexture(self):
 
-        tex = QtGui.QImage(1024, 256, QtGui.QImage.Format_ARGB32)
-        tex.fill(Qt.transparent)
-        painter = QtGui.QPainter(tex)
+        tex = bytearray(1024 * 256 * 4)
+        stride = 1024 * 4
 
-        Xoffset = 0
-        Yoffset = 0
+        for i, tile in enumerate(Tileset.tiles):
+            tile_bytes = bytearray(tile.image.bits().asstring(24 * 24 * 4))
 
-        for tile in Tileset.tiles:
-            minitex = QtGui.QImage(32, 32, QtGui.QImage.Format_ARGB32)
-            minitex.fill(Qt.transparent)
-            minipainter = QtGui.QPainter(minitex)
+            row, col = divmod(i, 32)
+            dest_offs = row * 32 * stride + col * (32 * 4)
 
-            minipainter.drawPixmap(4, 4, tile.image)
-            minipainter.end()
+            for src_y in range(24):
+                row = tile_bytes[src_y * (24 * 4) : (src_y + 1) * (24 * 4)]
 
-            # Read colours and DESTROY THEM (or copy them to the edges, w/e)
-            for i in range(4,28):
+                # Clamp left/right pixels of the row
+                row = row[:4] * 4 + row + row[-4:] * 4
 
-                # Top Clamp
-                colour = minitex.pixel(i, 4)
-                for p in range(0,5):
-                    minitex.setPixel(i, p, colour)
+                tex[dest_offs : dest_offs + (32 * 4)] = row
+                dest_offs += stride
+                if src_y == 0 or src_y == 23:
+                    # Clamp top/bottom rows of the tile
+                    tex[dest_offs : dest_offs + (32 * 4)] = row
+                    dest_offs += stride
+                    tex[dest_offs : dest_offs + (32 * 4)] = row
+                    dest_offs += stride
+                    tex[dest_offs : dest_offs + (32 * 4)] = row
+                    dest_offs += stride
+                    tex[dest_offs : dest_offs + (32 * 4)] = row
+                    dest_offs += stride
 
-                # Left Clamp
-                colour = minitex.pixel(4, i)
-                for p in range(0,5):
-                    minitex.setPixel(p, i, colour)
+        tex = bytes(tex)
 
-                # Right Clamp
-                colour = minitex.pixel(i, 27)
-                for p in range(27,32):
-                    minitex.setPixel(i, p, colour)
-
-                # Bottom Clamp
-                colour = minitex.pixel(27, i)
-                for p in range(27,32):
-                    minitex.setPixel(p, i, colour)
-
-            # UpperLeft Corner Clamp
-            colour = minitex.pixel(4, 4)
-            for x in range(0,5):
-                for y in range(0,5):
-                    minitex.setPixel(x, y, colour)
-
-            # UpperRight Corner Clamp
-            colour = minitex.pixel(27, 4)
-            for x in range(27,32):
-                for y in range(0,5):
-                    minitex.setPixel(x, y, colour)
-
-            # LowerLeft Corner Clamp
-            colour = minitex.pixel(4, 27)
-            for x in range(0,5):
-                for y in range(27,32):
-                    minitex.setPixel(x, y, colour)
-
-            # LowerRight Corner Clamp
-            colour = minitex.pixel(27, 27)
-            for x in range(27,32):
-                for y in range(27,32):
-                    minitex.setPixel(x, y, colour)
-
-
-            painter.drawImage(Xoffset, Yoffset, minitex)
-
-            Xoffset += 32
-
-            if Xoffset >= 1024:
-                Xoffset = 0
-                Yoffset += 32
-
-        painter.end()
-
-        dest = RGB4A3Encode(tex)
+        tex = RGB4A3Encode(tex)
 
         useNSMBLib = HaveNSMBLib and hasattr(nsmblib, 'compress11LZS')
 
@@ -5859,20 +6295,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 # NSMBLib is available, but only with the broken compression algorithm,
                 # so the user can choose whether to use it or not
 
-                items = ("Slow Compression, Good Quality", "Fast Compression, but the Image gets damaged")
+                items = ['Slow compression, good quality', 'Fast compression, but the image gets damaged']
 
-                item, ok = QtWidgets.QInputDialog.getItem(self, "Choose compression method",
-                        "Two methods of compression are available. Choose<br />"
-                        "Fast compression for rapid testing. Choose slow<br />"
-                        "compression for releases.<br />"
-                        "<br />"
-                        "To fix the fast compression, download and install<br />"
-                        "NSMBLib-Updated (\"pip uninstall nsmblib\", \"pip<br />"
-                        "install nsmblib\").\n", items, 0, False)
+                item, ok = QtWidgets.QInputDialog.getItem(self, 'Choose compression method',
+                    'Two methods of compression are available. Choose<br />'
+                    '"fast compression" for rapid testing. Choose "slow<br />'
+                    'compression" for releases.<br />'
+                    '<br />'
+                    'To fix the fast compression, download and install<br />'
+                    'NSMBLib-Updated:<br />'
+                    '"pip install --force-reinstall --no-cache-dir nsmblib"',
+                    items, 0, False)
                 if not ok:
                     return None
 
-                if item == "Slow Compression, Good Quality":
+                if item == "Slow compression, good quality":
                     useNSMBLib = False
                 else:
                     useNSMBLib = True
@@ -5882,12 +6319,9 @@ class MainWindow(QtWidgets.QMainWindow):
             useNSMBLib = False
 
         if useNSMBLib:
-            TexBuffer = nsmblib.compress11LZS(dest)
+            return nsmblib.compress11LZS(bytes(tex))
         else:
-            lz = lz77.LZS11()
-            TexBuffer = lz.Compress11LZS(dest)
-
-        return TexBuffer
+            return lz77.LZS11().Compress11LZS(tex)
 
 
     def PackTiles(self):
@@ -6267,7 +6701,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         Tileset.tiles[tile[1]].byte7 = colls[colls_off]
                         colls_off += 1
 
-                    painter.drawPixmap(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
+                    painter.drawImage(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
                 Xoffset += 24
             Xoffset = 0
             Yoffset += 24
@@ -6351,7 +6785,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for i in range(len(object.tiles)):
                 for tile in object.tiles[i]:
                     if (Tileset.slot == 0) or ((tile[2] & 3) != 0):
-                        painter.drawPixmap(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
+                        painter.drawImage(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
                     Tilebuffer += (Tileset.tiles[tile[1]].byte0).to_bytes(1, 'big')
                     Tilebuffer += (Tileset.tiles[tile[1]].byte1).to_bytes(1, 'big')
                     Tilebuffer += (Tileset.tiles[tile[1]].byte2).to_bytes(1, 'big')
@@ -6503,7 +6937,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(len(object.tiles)):
             for tile in object.tiles[i]:
                 if (Tileset.slot == 0) or ((tile[2] & 3) != 0):
-                    painter.drawPixmap(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
+                    painter.drawImage(Xoffset, Yoffset, Tileset.tiles[tile[1]].image)
                 Tilebuffer += (Tileset.tiles[tile[1]].byte0).to_bytes(1, 'big')
                 Tilebuffer += (Tileset.tiles[tile[1]].byte1).to_bytes(1, 'big')
                 Tilebuffer += (Tileset.tiles[tile[1]].byte2).to_bytes(1, 'big')
