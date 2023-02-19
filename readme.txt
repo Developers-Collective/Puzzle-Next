@@ -1,8 +1,24 @@
-This is the Puzzle NSMBW Tileset Editor, updated to work with Python 3 and your choice of either Qt for Python (PySide2) or PyQt5. No other changes are included apart from bug fixes.
-The Puzzle NSMBW Tileset Editor was created by Tempus.
-The Python 3, Qt-for-Python/PyQt5 porting was done by RoadrunnerWMC.
-The program is GNU GPL v2 licensed (see license.txt).
+# Puzzle Next
+This is the Puzzle NSMBW Tileset Editor, licensed under GNU GPL v2 (see `LICENSE`).
 
-As of 2019, PySide2 is much less stable than PyQt5, especially with the imagery-related classes. As such, PyQt5 is recommended over PySide2 at this time.
+Puzzle Next can be used to edit and create tilesets for New Super Mario Bros. Wii. This also includes editors for tile animations and randomizations.
 
-The original program can be found at https://github.com/Tempus/Puzzle .
+# History
+- The Puzzle NSMBW Tileset Editor was created by Tempus.
+	* The original program can be found at https://github.com/Tempus/Puzzle
+- The Puzzle Updated fork by RoadrunnerWMC can be fount at: https://github.com/NSMBW-Community/Puzzle-Updated
+	* Python 3, Qt-for-Python/PyQt5 porting
+	* Black border fix
+-  Puzzle Next can be found at: https://github.com/NSMBW-Community/Puzzle-Next
+	* Adds tile animation and randomization support
+	* Additional tile object settings (ported from Abood's fork)
+	* Dark Mode
+
+# Requirements
+### Running from Source
+- Python 3: https://www.python.org
+- PyQt5: `py -3 -m pip install PyQt5`
+- Execute `puzzle.py`, on Windows you can use `puzzle.bat` or `puzzle-split.bat` to do so
+
+###  Build
+Simply execute the binary included in your download.
