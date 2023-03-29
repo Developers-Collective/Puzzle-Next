@@ -6,7 +6,7 @@ Puzzle Next can be used to edit and create tilesets for New Super Mario Bros. Wi
 # History
 - The Puzzle NSMBW Tileset Editor was created by Tempus.
 	* The original program can be found at https://github.com/Tempus/Puzzle
-- The Puzzle Updated fork by RoadrunnerWMC can be fount at: https://github.com/NSMBW-Community/Puzzle-Updated
+- The Puzzle Updated fork by RoadrunnerWMC can be found at: https://github.com/NSMBW-Community/Puzzle-Updated
 	* Python 3, Qt-for-Python/PyQt5 porting
 	* Black border fix
 -  Puzzle Next can be found at: https://github.com/NSMBW-Community/Puzzle-Next

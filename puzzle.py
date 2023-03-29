@@ -3275,7 +3275,7 @@ class RepeatXModifiers(QtWidgets.QWidget):
         if index < 0 or index >= len(Tileset.objects):
             return
 
-        pix = QtGui.QPixmap(24,24)
+        pix = QtGui.QImage(24, 24, QtGui.QImage.Format.Format_ARGB32)
         pix.fill(QtGui.QColor(0,0,0,0))
 
         window.tileWidget.tiles.tiles[y].append(pix)
@@ -3908,7 +3908,7 @@ class tileWidget(QtWidgets.QWidget):
         curObj = Tileset.objects[self.object]
         curObj.width += 1
 
-        pix = QtGui.QPixmap(24,24)
+        pix = QtGui.QImage(24, 24, QtGui.QImage.Format.Format_ARGB32)
         pix.fill(QtGui.QColor(0,0,0,0))
 
         for row in self.tiles:
@@ -3991,7 +3991,7 @@ class tileWidget(QtWidgets.QWidget):
         curObj = Tileset.objects[self.object]
         curObj.height += 1
 
-        pix = QtGui.QPixmap(24,24)
+        pix = QtGui.QImage(24, 24, QtGui.QImage.Format.Format_ARGB32)
         pix.fill(QtGui.QColor(0,0,0,0))
 
         self.tiles.append([pix for _ in range(curObj.width)])
@@ -6666,7 +6666,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         tileImage = QtGui.QPixmap(dir + "/" + jsonData["img"])
 
-        tex = QtGui.QPixmap(object.width * 24, object.height * 24)
+        tex = tex = QtGui.QPixmap(object.width * 24, object.height * 24)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
 
@@ -6683,7 +6683,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if tile[1] not in tilesReplaced:
                         tilesReplaced.append(tile[1])
 
-                        Tileset.tiles[tile[1]].image = tileImage.copy(Xoffset,Yoffset,24,24)
+                        Tileset.tiles[tile[1]].image = tileImage.copy(Xoffset,Yoffset,24,24).toImage()
                         Tileset.tiles[tile[1]].byte0 = colls[colls_off]
                         colls_off += 1
                         Tileset.tiles[tile[1]].byte1 = colls[colls_off]
