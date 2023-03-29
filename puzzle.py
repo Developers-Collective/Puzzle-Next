@@ -1163,7 +1163,7 @@ class framesheetOverlord(QtWidgets.QWidget):
         frames = []
         for y in range(0, len(data)//2048):
             frame = framesheet.copy(0, 32*y, 32, 32)
-            frames.append(frame)
+            frames.append(QtGui.QPixmap.fromImage(frame))
         window.frames["BG_tex/{0}.bin".format(name)] = frames
 
         window.framesheetmodel.appendRow(QtGui.QStandardItem(QtGui.QIcon(QtGui.QPixmap.fromImage(framesheet)), '{0}'.format(name)))
@@ -6666,7 +6666,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         tileImage = QtGui.QPixmap(dir + "/" + jsonData["img"])
 
-        tex = tex = QtGui.QPixmap(object.width * 24, object.height * 24)
+        tex = QtGui.QPixmap(object.width * 24, object.height * 24)
         tex.fill(Qt.transparent)
         painter = QtGui.QPainter(tex)
 
