@@ -206,8 +206,7 @@ class ProfileOverrideWidget(QWidget):
         if self.currentData == __EMPTY__:
             return None
 
-        if self._profile_data is None:
-            self._profile_data = profile.encode(self.currentData)
+        self._profile_data = profile.encode(self.currentData)
 
         return self._profile_data
 

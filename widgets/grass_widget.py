@@ -139,8 +139,7 @@ class FlowerGrassWidget(QWidget):
         if self.currentData == __EMPTY__:
             return None
 
-        if self._grass_data is None:
-            self._grass_data = grass.encode(self.currentData)
+        self._grass_data = grass.encode(self.currentData)
 
         return self._grass_data
 
