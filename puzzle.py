@@ -13,6 +13,10 @@ import time
 from xml.etree import ElementTree as etree
 
 from ctypes import create_string_buffer
+
+from widgets.grass_widget import FlowerGrassWidget
+from widgets.prof_widget import ProfileOverrideWidget
+
 try:
     from PyQt5 import QtCore, QtGui, QtWidgets
 except ImportError:
@@ -1847,10 +1851,10 @@ class randTilesOverlord(QtWidgets.QWidget):
 
         self.importBin = QtWidgets.QPushButton('Import from .bin')
         self.importXml = QtWidgets.QPushButton('Import from .xml')
-        self.importArc = QtWidgets.QPushButton('Import from tileset')
+        # self.importArc = QtWidgets.QPushButton('Import from tileset')
         self.exportBin = QtWidgets.QPushButton('Export to .bin')
         self.exportXml = QtWidgets.QPushButton('Export to .xml')
-        self.exportArc = QtWidgets.QPushButton('Export to tileset')
+        # self.exportArc = QtWidgets.QPushButton('Export to tileset')
 
         self.exceptionLabel = QtWidgets.QLabel('Empty ...')
 
@@ -1859,10 +1863,10 @@ class randTilesOverlord(QtWidgets.QWidget):
         
         self.importBin.released.connect(self.importFromBin)
         self.importXml.released.connect(self.importFromXml)
-        self.importArc.released.connect(self.importFromArc)
+        #self.importArc.released.connect(self.importFromArc)
         self.exportBin.released.connect(self.exportToBin)
         self.exportXml.released.connect(self.exportToXml)
-        self.exportArc.released.connect(self.exportToArc)
+        #self.exportArc.released.connect(self.exportToArc)
 
         self.text.textChanged.connect(self.updateAfterEdit)
 
@@ -1877,10 +1881,10 @@ class randTilesOverlord(QtWidgets.QWidget):
 
         layout.addWidget(self.importBin, 3, 0, 1, 1)
         layout.addWidget(self.importXml, 3, 1, 1, 1)
-        layout.addWidget(self.importArc, 4, 0, 1, 2)
+        #layout.addWidget(self.importArc, 4, 0, 1, 2)
         layout.addWidget(self.exportBin, 3, 2, 1, 1)
         layout.addWidget(self.exportXml, 3, 3, 1, 1)
-        layout.addWidget(self.exportArc, 4, 2, 1, 2)
+        #layout.addWidget(self.exportArc, 4, 2, 1, 2)
 
         layout.setRowMinimumHeight(1, 40)
 
@@ -2255,10 +2259,10 @@ class animTilesOverlord(QtWidgets.QWidget):
 
         self.importBin = QtWidgets.QPushButton('Import from .bin')
         self.importTxt = QtWidgets.QPushButton('Import from .txt')
-        self.importArc = QtWidgets.QPushButton('Import from tileset')
+        # self.importArc = QtWidgets.QPushButton('Import from tileset')
         self.exportBin = QtWidgets.QPushButton('Export to .bin')
         self.exportTxt = QtWidgets.QPushButton('Export to .txt')
-        self.exportArc = QtWidgets.QPushButton('Export to tileset')
+        # self.exportArc = QtWidgets.QPushButton('Export to tileset')
 
 
         # Connections
@@ -2266,10 +2270,10 @@ class animTilesOverlord(QtWidgets.QWidget):
 
         self.importBin.released.connect(self.importFromBin)
         self.importTxt.released.connect(self.importFromTxt)
-        self.importArc.released.connect(self.importFromArc)
+        #self.importArc.released.connect(self.importFromArc)
         self.exportBin.released.connect(self.exportToBin)
         self.exportTxt.released.connect(self.exportToTxt)
-        self.exportArc.released.connect(self.exportToArc)
+        #self.exportArc.released.connect(self.exportToArc)
 
         self.text.textChanged.connect(self.updateAfterEdit)
 
@@ -2282,10 +2286,10 @@ class animTilesOverlord(QtWidgets.QWidget):
         layout.addWidget(self.exceptionLabel, 2, 0, 1, 4)
         layout.addWidget(self.importBin, 3, 0, 1, 1)
         layout.addWidget(self.importTxt, 3, 1, 1, 1)
-        layout.addWidget(self.importArc, 4, 0, 1, 2)
+        #layout.addWidget(self.importArc, 4, 0, 1, 2)
         layout.addWidget(self.exportBin, 3, 2, 1, 1)
         layout.addWidget(self.exportTxt, 3, 3, 1, 1)
-        layout.addWidget(self.exportArc, 4, 2, 1, 2)
+        #layout.addWidget(self.exportArc, 4, 2, 1, 2)
 
         layout.setRowMinimumHeight(1, 40)
 
@@ -5757,6 +5761,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(os.path.basename(path))
         Tileset.clear()
 
+        print(type(Tileset), Tileset)
+
         basename = os.path.basename(path[str(path).rfind('/')+1:-4])
 
         with open(path,'rb') as file:
@@ -5787,6 +5793,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 Tileset.animTilesBin = arc[key]
             elif key == 'BG_new/RandTiles.bin':
                 Tileset.randTilesBin = arc[key]
+            elif key == 'BG_ext/PlantTiles.bin':
+                print('Loading PlantTiles.bin')
+                Tileset.plantOverrides = arc[key]
+                self.plantOverwriteEditor.load_from_bin(Tileset.plantOverrides)
+            elif key == 'BG_ext/profile_overrides.bin':
+                print('Loading ProfileTiles.bin')
+                Tileset.profileOverrides = arc[key]
+                self.profileOverwriteEditor.load_from_bin(Tileset.profileOverrides)
             else:
                 Tileset.unknownFiles[key] = arc[key]
                 print(f"Unknown File: {key}")
@@ -6231,6 +6245,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 arcFiles['BG_new/AnimTiles.bin'] = Tileset.animTilesBin
             if Tileset.randTilesBin:
                 arcFiles['BG_new/RandTiles.bin'] = Tileset.randTilesBin
+
+        grassData = self.plantOverwriteEditor.to_bytes()
+        if grassData is not None:
+            print('Saving PlatTiles.bin')
+            arcFiles['BG_ext'] = None
+            arcFiles['BG_ext/PlantTiles.bin'] = self.plantOverwriteEditor.to_bytes()
+
+        profileData = self.profileOverwriteEditor.to_bytes()
+        if profileData is not None:
+            print('Saving ProfileTiles.bin')
+            arcFiles['BG_ext'] = None
+            arcFiles['BG_ext/ProfileTiles.bin'] = self.profileOverwriteEditor.to_bytes()
 
         for key, file in Tileset.unknownFiles.items():
             arcFiles[key.split("/")[0]] = None
@@ -7138,6 +7164,11 @@ class MainWindow(QtWidgets.QMainWindow):
         #Sixth Tab
         self.randTilesEditor = randTilesOverlord()
 
+        #Seventh Tab
+        self.plantOverwriteEditor = FlowerGrassWidget()
+
+        #Eigth Tab
+        self.profileOverwriteEditor = ProfileOverrideWidget()
 
         # Sets the Tabs
         self.tabWidget.addTab(self.paletteWidget, 'Behaviors')
@@ -7146,6 +7177,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabWidget.addTab(self.frameEditor, 'Animation Editor')
         self.tabWidget.addTab(self.animTilesEditor, 'AnimTiles')
         self.tabWidget.addTab(self.randTilesEditor, 'RandTiles')
+        self.tabWidget.addTab(self.plantOverwriteEditor, "Plant Tiles")
+        self.tabWidget.addTab(self.profileOverwriteEditor, "Profile Tiles")
 
         # Connections do things!
         self.tileDisplay.clicked.connect(self.paintFormat)
