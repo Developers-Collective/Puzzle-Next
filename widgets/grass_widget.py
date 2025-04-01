@@ -78,16 +78,6 @@ class FlowerGrassWidget(QWidget):
         self.loadBinButton.clicked.connect(self.loadBinFile)
         self.saveBinButton.clicked.connect(self.saveBinFile)
 
-        tilesetLayout = QHBoxLayout()
-        self.importTilesetButton = QPushButton("Import from Tileset")
-        self.exportTilesetButton = QPushButton("Export to Tileset")
-        tilesetLayout.addWidget(self.importTilesetButton)
-        tilesetLayout.addWidget(self.exportTilesetButton)
-        mainLayout.addLayout(tilesetLayout)
-
-        self.importTilesetButton.clicked.connect(self.importFromTileset)
-        self.exportTilesetButton.clicked.connect(self.exportToTileset)
-
         self.setLayout(mainLayout)
 
     def _load_into_table(self, data):
@@ -111,7 +101,41 @@ class FlowerGrassWidget(QWidget):
             self._setTableItem(rowIndex, 1, str(flowertype))
             self._setTableItem(rowIndex, 2, str(grasstype))
 
+    def updateCurrentData(self):
+        try:
+            flowerVal = int(self.flowerfileEdit.text())
+        except ValueError:
+            flowerVal = 0
+        try:
+            grassVal = int(self.grassfileEdit.text())
+        except ValueError:
+            grassVal = 0
+
+        self.currentData["flowerfile"] = flowerVal
+        self.currentData["grassfile"] = grassVal
+
+        rowCount = self.table.rowCount()
+        entries = []
+        for rowIndex in range(rowCount):
+            def textOrZero(r, c):
+                item = self.table.item(r, c)
+                return item.text().strip() if item else "0"
+
+            tilenum    = int(textOrZero(rowIndex, 0))
+            flowertype = int(textOrZero(rowIndex, 1))
+            grasstype  = int(textOrZero(rowIndex, 2))
+
+            entries.append({
+                "tilenum": tilenum,
+                "flowertype": flowertype,
+                "grasstype": grasstype
+            })
+
+        self.currentData["entries"] = entries
+
     def to_bytes(self) -> bytes | None:
+        self.updateCurrentData()
+
         if self.currentData == __EMPTY__:
             return None
 
@@ -120,8 +144,14 @@ class FlowerGrassWidget(QWidget):
 
         return self._grass_data
 
-    def load_from_bin(self, data: bytes):
+    def load_from_bin(self, data: bytes | None):
+        if data is None:
+            self.table.setRowCount(0)
+            self.currentData = copy.deepcopy(__EMPTY__)
+            return
+
         self.currentData = grass.decode(io.BytesIO(data))
+        self._load_into_table(self.currentData)
 
     # -------------------------------------------------------------------------
     # Row Management: Add/Remove
@@ -150,15 +180,6 @@ class FlowerGrassWidget(QWidget):
         self.table.setItem(row, col, item)
 
     # -------------------------------------------------------------------------
-    # Tileset import/export
-    # -------------------------------------------------------------------------
-    def importFromTileset(self):
-        self._load_into_table(self.currentData)
-
-    def exportToTileset(self):
-        self._grass_data = grass.encode(self.currentData)
-
-    # -------------------------------------------------------------------------
     # Binary Load/Save
     # -------------------------------------------------------------------------
     def loadBinFile(self):
@@ -172,6 +193,8 @@ class FlowerGrassWidget(QWidget):
         path, _ = QFileDialog.getSaveFileName(self, "Save .bin", "", "Binary Files (*.bin)")
         if not path:
             return
+
+        self.updateCurrentData()
 
         try:
             with open(path, "wb") as f:
@@ -204,36 +227,7 @@ class FlowerGrassWidget(QWidget):
         if not path:
             return
 
-        try:
-            flowerVal = int(self.flowerfileEdit.text())
-        except ValueError:
-            flowerVal = 0
-        try:
-            grassVal = int(self.grassfileEdit.text())
-        except ValueError:
-            grassVal = 0
-
-        self.currentData["flowerfile"] = flowerVal
-        self.currentData["grassfile"] = grassVal
-
-        rowCount = self.table.rowCount()
-        entries = []
-        for rowIndex in range(rowCount):
-            def textOrZero(r, c):
-                item = self.table.item(r, c)
-                return item.text().strip() if item else "0"
-
-            tilenum    = int(textOrZero(rowIndex, 0))
-            flowertype = int(textOrZero(rowIndex, 1))
-            grasstype  = int(textOrZero(rowIndex, 2))
-
-            entries.append({
-                "tilenum": tilenum,
-                "flowertype": flowertype,
-                "grasstype": grasstype
-            })
-
-        self.currentData["entries"] = entries
+        self.updateCurrentData()
 
         try:
             with open(path, 'w') as f:

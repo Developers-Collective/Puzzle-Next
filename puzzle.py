@@ -5774,6 +5774,9 @@ class MainWindow(QtWidgets.QMainWindow):
         objstrings = None
         metadata = None
 
+        Tileset.plantOverrides = None
+        Tileset.profileOverrides = None
+
         for key, value in arc.files:
             if value is None:
                 continue
@@ -5794,14 +5797,15 @@ class MainWindow(QtWidgets.QMainWindow):
             elif key == 'BG_ext/PlantTiles.bin':
                 print('Loading PlantTiles.bin')
                 Tileset.plantOverrides = arc[key]
-                self.plantOverwriteEditor.load_from_bin(Tileset.plantOverrides)
             elif key == 'BG_ext/ProfileTiles.bin':
                 print('Loading ProfileTiles.bin')
                 Tileset.profileOverrides = arc[key]
-                self.profileOverwriteEditor.load_from_bin(Tileset.profileOverrides)
             else:
                 Tileset.unknownFiles[key] = arc[key]
                 print(f"Unknown File: {key}")
+
+        self.plantOverwriteEditor.load_from_bin(Tileset.plantOverrides)
+        self.profileOverwriteEditor.load_from_bin(Tileset.profileOverrides)
 
         if (Image is None) or (behaviourdata is None) or (objstrings is None) or (metadata is None):
             QtWidgets.QMessageBox.warning(None, 'Error',  'Error - the necessary files were not found.\n\nNot a valid tileset, sadly.')

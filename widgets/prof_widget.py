@@ -84,117 +84,9 @@ class ProfileOverrideWidget(QWidget):
         self.loadBinButton.clicked.connect(self.loadBinFile)
         self.saveBinButton.clicked.connect(self.saveBinFile)
 
-        # --- 5) Bottom row #3: Import from Tileset / Export to Tileset
-        tilesetButtonLayout = QHBoxLayout()
-        self.importTilesetButton = QPushButton("Import from Tileset")
-        self.exportTilesetButton = QPushButton("Export to Tileset")
-        tilesetButtonLayout.addWidget(self.importTilesetButton)
-        tilesetButtonLayout.addWidget(self.exportTilesetButton)
-        mainLayout.addLayout(tilesetButtonLayout)
-
-        # Connect them to placeholder methods
-        self.importTilesetButton.clicked.connect(self.importFromTileset)
-        self.exportTilesetButton.clicked.connect(self.exportToTileset)
-
         self.setLayout(mainLayout)
 
-    def _load_into_table(self, data):
-        self.currentData = data
-
-        # Update profver
-        profverVal = data.get("profver", 0)
-        self.profverEdit.setText(str(profverVal))
-
-        # Grab entries
-        entries = data.get("entries", [])
-        self.table.setRowCount(len(entries))
-
-        for rowIndex, entry in enumerate(entries):
-            # Extract each field with fallback
-            tilenum = entry.get("tilenum", 0)
-            profileid = entry.get("profileid", 0)
-            offset = entry.get("offset", [0.0, 0.0, 0.0])
-            offsetX, offsetY, offsetZ = offset if len(offset) == 3 else (0.0, 0.0, 0.0)
-            scale = entry.get("scale", [0.0, 0.0])
-            scaleX, scaleY = scale if len(scale) == 2 else (0.0, 0.0)
-            settings = entry.get("settings", "")
-            railcolor = entry.get("railcolor", "")
-            railsrt = entry.get("railsrt", [0.0, 0.0])
-            railsrtX, railsrtY = railsrt if len(railsrt) == 2 else (0.0, 0.0)
-
-            # Populate table cells
-            self._setTableItem(rowIndex, 0, str(tilenum))
-            self._setTableItem(rowIndex, 1, str(profileid))
-            self._setTableItem(rowIndex, 2, str(offsetX))
-            self._setTableItem(rowIndex, 3, str(offsetY))
-            self._setTableItem(rowIndex, 4, str(offsetZ))
-            self._setTableItem(rowIndex, 5, str(scaleX))
-            self._setTableItem(rowIndex, 6, str(scaleY))
-            self._setTableItem(rowIndex, 7, settings)
-            self._setTableItem(rowIndex, 8, railcolor)
-            self._setTableItem(rowIndex, 9, str(railsrtX))
-            self._setTableItem(rowIndex, 10, str(railsrtY))
-
-    def to_bytes(self) -> bytes | None:
-        if self.currentData == __EMPTY__:
-            return None
-
-        if self._profile_data is None:
-            self._profile_data = profile.encode(self.currentData)
-
-        return self._profile_data
-
-    def load_from_bin(self, data):
-        self._profile_data = profile.decode(io.BytesIO(data))
-
-    # -------------------------------------------------------------------------
-    # Row Management
-    # -------------------------------------------------------------------------
-    def addRow(self):
-        """Add a new blank row at the bottom with default (zero/empty) values."""
-        rowCount = self.table.rowCount()
-        self.table.insertRow(rowCount)
-
-        # Provide some defaults if you'd like
-        defaults = ["0", "0", "0.0", "0.0", "0.0", "0.0", "0.0", "0x00000000", "", "", ""]
-        for colIndex, val in enumerate(defaults):
-            self._setTableItem(rowCount, colIndex, val)
-
-    def removeRow(self):
-        """Remove the currently selected row, if any."""
-        selectedRow = self.table.currentRow()
-        if selectedRow >= 0:
-            self.table.removeRow(selectedRow)
-
-    def _setTableItem(self, row, col, text):
-        item = QTableWidgetItem(text)
-        item.setTextAlignment(Qt.AlignCenter)
-        self.table.setItem(row, col, item)
-
-    # -------------------------------------------------------------------------
-    # JSON Load/Save
-    # -------------------------------------------------------------------------
-    def loadJson(self):
-        """Reads a JSON file, populates profver & the table of entries."""
-        path, _ = QFileDialog.getOpenFileName(self, "Open JSON", "", "JSON Files (*.json)")
-        if not path:
-            return
-        try:
-            with open(path, 'r') as f:
-                data = json.load(f)
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(None, 'Error',
-                                          f"Error reading JSON: {e}")
-            return
-
-        self._load_into_table(data)
-
-    def saveJson(self):
-        """Collects data from profver & table, writes JSON."""
-        path, _ = QFileDialog.getSaveFileName(self, "Save JSON", "", "JSON Files (*.json)")
-        if not path:
-            return
-
+    def updateCurrentData(self):
         # Read profver from line edit
         try:
             self.currentData["profver"] = int(self.profverEdit.text())
@@ -271,6 +163,113 @@ class ProfileOverrideWidget(QWidget):
 
         self.currentData["entries"] = newEntries
 
+    def _load_into_table(self, data):
+        self.currentData = data
+
+        # Update profver
+        profverVal = data.get("profver", 0)
+        self.profverEdit.setText(str(profverVal))
+
+        # Grab entries
+        entries = data.get("entries", [])
+        self.table.setRowCount(len(entries))
+
+        for rowIndex, entry in enumerate(entries):
+            # Extract each field with fallback
+            tilenum = entry.get("tilenum", 0)
+            profileid = entry.get("profileid", 0)
+            offset = entry.get("offset", [0.0, 0.0, 0.0])
+            offsetX, offsetY, offsetZ = offset if len(offset) == 3 else (0.0, 0.0, 0.0)
+            scale = entry.get("scale", [0.0, 0.0])
+            scaleX, scaleY = scale if len(scale) == 2 else (0.0, 0.0)
+            settings = entry.get("settings", "")
+            railcolor = entry.get("railcolor", "")
+            railsrt = entry.get("railsrt", [0.0, 0.0])
+            railsrtX, railsrtY = railsrt if len(railsrt) == 2 else (0.0, 0.0)
+
+            # Populate table cells
+            self._setTableItem(rowIndex, 0, str(tilenum))
+            self._setTableItem(rowIndex, 1, str(profileid))
+            self._setTableItem(rowIndex, 2, str(offsetX))
+            self._setTableItem(rowIndex, 3, str(offsetY))
+            self._setTableItem(rowIndex, 4, str(offsetZ))
+            self._setTableItem(rowIndex, 5, str(scaleX))
+            self._setTableItem(rowIndex, 6, str(scaleY))
+            self._setTableItem(rowIndex, 7, settings)
+            self._setTableItem(rowIndex, 8, railcolor)
+            self._setTableItem(rowIndex, 9, str(railsrtX))
+            self._setTableItem(rowIndex, 10, str(railsrtY))
+
+    def to_bytes(self) -> bytes | None:
+        self.updateCurrentData()
+
+        if self.currentData == __EMPTY__:
+            return None
+
+        if self._profile_data is None:
+            self._profile_data = profile.encode(self.currentData)
+
+        return self._profile_data
+
+    def load_from_bin(self, data: bytes | None):
+        if data is None:
+            self.table.setRowCount(0)
+            self.currentData = copy.deepcopy(__EMPTY__)
+            return
+
+        self.currentData = profile.decode(io.BytesIO(data))
+        self._load_into_table(self.currentData)
+
+    # -------------------------------------------------------------------------
+    # Row Management
+    # -------------------------------------------------------------------------
+    def addRow(self):
+        """Add a new blank row at the bottom with default (zero/empty) values."""
+        rowCount = self.table.rowCount()
+        self.table.insertRow(rowCount)
+
+        # Provide some defaults if you'd like
+        defaults = ["0", "0", "0.0", "0.0", "0.0", "0.0", "0.0", "0x00000000", "", "", ""]
+        for colIndex, val in enumerate(defaults):
+            self._setTableItem(rowCount, colIndex, val)
+
+    def removeRow(self):
+        """Remove the currently selected row, if any."""
+        selectedRow = self.table.currentRow()
+        if selectedRow >= 0:
+            self.table.removeRow(selectedRow)
+
+    def _setTableItem(self, row, col, text):
+        item = QTableWidgetItem(text)
+        item.setTextAlignment(Qt.AlignCenter)
+        self.table.setItem(row, col, item)
+
+    # -------------------------------------------------------------------------
+    # JSON Load/Save
+    # -------------------------------------------------------------------------
+    def loadJson(self):
+        """Reads a JSON file, populates profver & the table of entries."""
+        path, _ = QFileDialog.getOpenFileName(self, "Open JSON", "", "JSON Files (*.json)")
+        if not path:
+            return
+        try:
+            with open(path, 'r') as f:
+                data = json.load(f)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(None, 'Error',
+                                          f"Error reading JSON: {e}")
+            return
+
+        self._load_into_table(data)
+
+    def saveJson(self):
+        """Collects data from profver & table, writes JSON."""
+        path, _ = QFileDialog.getSaveFileName(self, "Save JSON", "", "JSON Files (*.json)")
+        if not path:
+            return
+
+        self.updateCurrentData()
+
         # Write JSON to disk
         try:
             with open(path, 'w') as f:
@@ -279,15 +278,6 @@ class ProfileOverrideWidget(QWidget):
         except Exception as e:
             QtWidgets.QMessageBox.warning(None, 'Error',
                                           f"Error writing JSON: {e}")
-
-    # -------------------------------------------------------------------------
-    # Tileset import/export
-    # -------------------------------------------------------------------------
-    def importFromTileset(self):
-        self._load_into_table(self.currentData)
-
-    def exportToTileset(self):
-        self._profile_data = profile.encode(self.currentData)
 
     # -------------------------------------------------------------------------
     # Binary Load/Save
@@ -303,6 +293,8 @@ class ProfileOverrideWidget(QWidget):
         path, _ = QFileDialog.getSaveFileName(self, "Save .bin", "", "Binary Files (*.bin)")
         if not path:
             return
+
+        self.updateCurrentData()
 
         try:
             with open(path, "wb") as f:
