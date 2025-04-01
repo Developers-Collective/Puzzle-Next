@@ -5761,8 +5761,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(os.path.basename(path))
         Tileset.clear()
 
-        print(type(Tileset), Tileset)
-
         basename = os.path.basename(path[str(path).rfind('/')+1:-4])
 
         with open(path,'rb') as file:
@@ -5797,7 +5795,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 print('Loading PlantTiles.bin')
                 Tileset.plantOverrides = arc[key]
                 self.plantOverwriteEditor.load_from_bin(Tileset.plantOverrides)
-            elif key == 'BG_ext/profile_overrides.bin':
+            elif key == 'BG_ext/ProfileTiles.bin':
                 print('Loading ProfileTiles.bin')
                 Tileset.profileOverrides = arc[key]
                 self.profileOverwriteEditor.load_from_bin(Tileset.profileOverrides)
@@ -6248,7 +6246,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         grassData = self.plantOverwriteEditor.to_bytes()
         if grassData is not None:
-            print('Saving PlatTiles.bin')
+            print('Saving PlantTiles.bin')
             arcFiles['BG_ext'] = None
             arcFiles['BG_ext/PlantTiles.bin'] = self.plantOverwriteEditor.to_bytes()
 
@@ -7177,8 +7175,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabWidget.addTab(self.frameEditor, 'Animation Editor')
         self.tabWidget.addTab(self.animTilesEditor, 'AnimTiles')
         self.tabWidget.addTab(self.randTilesEditor, 'RandTiles')
-        self.tabWidget.addTab(self.plantOverwriteEditor, "Plant Tiles")
-        self.tabWidget.addTab(self.profileOverwriteEditor, "Profile Tiles")
+        self.tabWidget.addTab(self.plantOverwriteEditor, "PlantTiles")
+        self.tabWidget.addTab(self.profileOverwriteEditor, "ProfileTiles")
 
         # Connections do things!
         self.tileDisplay.clicked.connect(self.paintFormat)
