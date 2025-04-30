@@ -5747,7 +5747,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.openTilesetFromPath(path)
 
 
-    def openTilesetFromPath(self, path):
+    def openTilesetFromPath(self, path, suppressSlotWarning=False):
         '''Opens a Nintendo tileset arc and parses the heck out of it.'''
         if path in self.recentFiles:
             self.recentFiles.insert(0, self.recentFiles.pop(self.recentFiles.index(path)))
@@ -5925,7 +5925,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if basename[:4] in ('Pa0_', 'Pa1_', 'Pa2_', 'Pa3_'):
                 slot = int(basename[2])
-                if slot != Tileset.slot:
+                if slot != Tileset.slot and not suppressSlotWarning:
                     QtWidgets.QMessageBox.information(self, "Warning", "Determined tileset slot ({}) does not match with the slot in the filename ({})!".format(Tileset.slot, slot))
 
             else:
@@ -6152,9 +6152,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.doFix = (button is self.fixedButton)
 
 
-    def saveImage(self):
-
-        fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
+    def saveImage(self, fn = None):
+        if fn is None:
+            fn = QtWidgets.QFileDialog.getSaveFileName(self, 'Choose a new filename', '', '.png (*.png)')[0]
         if not fn: return
 
         tex = QtGui.QImage(384, 384, QtGui.QImage.Format.Format_ARGB32)
@@ -7490,6 +7490,46 @@ if '-nolib' in sys.argv:
 if '-split' in sys.argv:
     SplitWindow = True
     sys.argv.remove('-split')
+
+# export all .arc files from -export-all folder to -out folder as .png
+# -export-all specifies an input path for .arc files and -out the output path for .png files
+if '-export-all' in sys.argv and '-out' in sys.argv:
+    import sys
+    try:
+        inputPath = os.path.normpath(sys.argv[sys.argv.index('-export-all') + 1])
+        outputPath = os.path.normpath(sys.argv[sys.argv.index('-out') + 1])
+        if not os.path.isdir(inputPath):
+            raise Exception("Input path does not exist")
+        if not os.path.isdir(outputPath):
+            os.makedirs(outputPath)
+
+        app = QtWidgets.QApplication(sys.argv)
+
+        window = MainWindow()
+
+        window.setAttribute(Qt.WA_DeleteOnClose)
+        window.destroyed.connect(osExit)
+
+        try:
+            for root, dirs, files in os.walk(inputPath):
+                for file in files:
+                    if file.endswith('.arc'):
+                        print(f"Exporting: {file} to {outputPath}")
+                        window.openTilesetFromPath(os.path.join(root, file), suppressSlotWarning=True)
+                        window.saveImage(os.path.join(outputPath, file.replace('.arc', '.png')))
+        except Exception as e:
+            print(f"Error exporting {file}: {e}")
+
+        os._exit(0) # exit the program after exporting all .arc files
+
+    except Exception as e:
+        print("Error: {}".format(e))
+        #print("Error: -export-all and -out arguments must be directly followed by a path")
+        os._exit(1)
+        
+elif '-export-all' in sys.argv or '-out' in sys.argv:
+    print("Error: -export-all and -out arguments must be used together, each directly followed by a path")
+    sys.exit(1)
 
 
 if __name__ == '__main__':
